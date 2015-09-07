@@ -30,7 +30,22 @@ days = {1: ["mon", "pn"],
         6: ["sat", "sb"],
         7: ["sun", "vs"]}
 
-#Place for your bot token
+commands = {
+    '/start',
+    '/help',
+    '/now',
+    '/next',
+    '/tomorrow',
+    '/teacher',
+    '/today',
+    '/tt',
+    '/changelang',
+    '/pig',
+    '/setgroup',
+    '/authors',
+    '/who'
+}
+
 BOT_TOKEN = ""
 BotURL = "https://api.telegram.org/bot%s/" % BOT_TOKEN
 
@@ -135,7 +150,6 @@ def get_one_pair(chat_id, group,\
             week_number = 3 - (datetime.date.today().isocalendar()[1] % 2 + 1)
 
         filter = "{" + "\'day_number\':{0},\'lesson_week\':{1}".format(week_day, week_number) + "}"
-        log.info(filter)
         raw_data = requests.get("http://api.rozklad.org.ua/v2/groups/{0}/lessons?filter={1}".format(group, filter))
         data = raw_data.json()
 
@@ -145,6 +159,10 @@ def get_one_pair(chat_id, group,\
                 i += 1
 
             if i == len(data['data']):
+                if not next:
+                    reply(chat_id, msg = on['no_lesson'])
+                    return
+
                 if week_day == 7:
                     get_one_pair(chat_id, group, cur_lesson = 1, week_day = 1, change_week_number = True)
                 else:
@@ -167,7 +185,6 @@ def get_one_pair(chat_id, group,\
                 if week_day == 7:
                     get_one_pair(chat_id, group, cur_lesson = 1, week_day = 1, change_week_number = True)
                 else:
-                    log.info("+1")
                     get_one_pair(chat_id, group, cur_lesson = 1, week_day = week_day + 1)
     except Exception:
             log.error(traceback.format_exc())
@@ -210,7 +227,10 @@ def get_day_timetable(chat_id, group, week_day_param, week_num_param,
                 (lesson['lesson_full_name'] if full_lesson_name else lesson['lesson_name']) + " - " + \
                 (lesson['lesson_room'] if lesson['lesson_room'] else on['unknown_room']) + "\n"
                 if show_teacher:
-                    timetable += "--- " + lesson['teachers'][0]['teacher_full_name'] + "\n"
+                    if len(lesson['teachers']) > 0 and lesson['teachers'][0]['teacher_full_name']:
+                        timetable += "--- " + lesson['teachers'][0]['teacher_full_name'] + "\n"
+                    else:
+                        timetable += "--- " + on['no_teacher'] + "\n"
 
             reply(chat_id, msg = timetable)
         else:
@@ -255,11 +275,15 @@ def index(request):
     week_number = 0
     week_day = 0
     log.info(message)
+
+    if message.split()[0].split('@')[0] not in commands:
+        return HttpResponse()
+
     #Process parameters
     if len(message.split()) > 1:
         for token in message.split():
             token = translit_ru_en(token)
-            if re.match("[A-z][A-z][-][[0-9][0-9]", token):
+            if re.match("[A-z][A-z][-][A-z]?[0-9][0-9][A-z]?", token):
                 group = token
             elif re.match("[w][1|2]", token):
                 week_number = int(token[1])
@@ -294,12 +318,6 @@ def index(request):
                 reply(chat_id, msg = on['setgroup_empty_param'])
             else:
                 set_group(chat_id, group)
-            
-        #TODO For debug. Delete on release    
-        elif message == '/getall':
-            all_chats = Chat.objects.all()
-            for chat in all_chats:
-                reply(chat_id, msg = chat.chat_id + " - " + chat.group)
                 
         elif message == '/changelang':
             if chat.language == "ru":
@@ -357,8 +375,3 @@ def index(request):
     except Exception:
         log.error(traceback.format_exc())
     return HttpResponse()
-
-def lalka(request):
-    mamka = 5
-    mamka += 'ahaha'
-    return HttpResponse(('hoho', 'lala'))
