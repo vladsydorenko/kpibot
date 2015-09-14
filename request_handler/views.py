@@ -1,7 +1,8 @@
+#!/usr/bin/python
 # -*- coding: UTF-8 -*-
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
-from django.template.defaultfilters import slugify 
+from django.template.defaultfilters import slugify
 from request_handler.models import Chat
 from transliterate import translit
 from django.http import HttpResponse
@@ -13,11 +14,11 @@ import time
 import json
 import logging
 import requests
-from miscellaneous.multipart import post_multipart
 import datetime
 import traceback
 #Support different languages (ru, ua)
 import miscellaneous.lang
+import miscellaneous.key
 
 #Dictionary for answers
 on = None
@@ -46,8 +47,7 @@ commands = {
     '/who'
 }
 
-BOT_TOKEN = ""
-BotURL = "https://api.telegram.org/bot%s/" % BOT_TOKEN
+BotURL = "https://api.telegram.org/bot%s/" % miscellaneous.key.BOT_TOKEN
 
 log = logging.getLogger("request_handler")
 
@@ -59,6 +59,7 @@ def get_current_lesson_number():
     now = datetime.datetime.now()
     #Timetable
     pairs = [
+        datetime.datetime(now.year, now.month, now.day, 0, 1),
         datetime.datetime(now.year, now.month, now.day, 8, 30),
         datetime.datetime(now.year, now.month, now.day, 10, 5),
         datetime.datetime(now.year, now.month, now.day, 12, 00),
@@ -70,7 +71,7 @@ def get_current_lesson_number():
     cur_pair = 0;
     for i in range(len(pairs) - 1):
         if now > pairs[i] and now < pairs[i+1]:
-            cur_pair = i + 1
+            cur_pair = i
             
     return cur_pair
 
@@ -99,12 +100,6 @@ def reply(chat_id, msg = None, img = None):
                 'chat_id': str(chat_id),
                 'text': msg.encode('utf-8'),
             })
-        elif img:
-            multipart.post_multipart(BotURL + 'sendPhoto', 
-            [('chat_id', str(chat_id))],
-            [('photo', 'image.jpg', img)])
-        else:
-            log.error("no msg or img specified")
     except Exception:
        log.error(traceback.format_exc())
 
@@ -116,12 +111,9 @@ def is_group_exists(group):
         return False
         
 def set_group(chat_id, group):
-    if is_group_exists(group):
-        c = Chat(chat_id = chat_id, group = group)
-        c.save()
-        reply(chat_id, msg = on['setgroup_success'])
-    else:
-        reply(chat_id, msg = on['setgroup_fail'])
+    c = Chat(chat_id = chat_id, group = group)
+    c.save()
+    reply(chat_id, msg = on['setgroup_success'])
         
 def get_one_pair(chat_id, group,\
                  next = False, teacher = False,\
@@ -144,6 +136,10 @@ def get_one_pair(chat_id, group,\
         if next:
             cur_lesson += 1
 
+        if cur_lesson == 0:
+            reply(chat_id, msg = on['no_lesson'])
+            return
+
         if not change_week_number:
             week_number = datetime.date.today().isocalendar()[1] % 2 + 1
         else:
@@ -154,6 +150,7 @@ def get_one_pair(chat_id, group,\
         data = raw_data.json()
 
         if data['statusCode'] == 200:
+            #Remake to for loop
             i = 0
             while i < len(data['data']) and int(data['data'][i]['lesson_number']) < cur_lesson:
                 i += 1
@@ -170,7 +167,11 @@ def get_one_pair(chat_id, group,\
                 return
                 
             if teacher:
-                reply(chat_id, msg = data['data'][i]['teachers'][0]['teacher_full_name'])
+                log.info(data['data'][i]['teachers'][0]['teacher_full_name'])
+                if not data['data'][i]['teachers'][0]['teacher_full_name']:
+                    reply(chat_id, msg = on['no_teacher'])
+                else:
+                    reply(chat_id, msg = data['data'][i]['teachers'][0]['teacher_full_name'])
             else:
                 lesson = on['week_days'][week_day] + ":\n"
                 lesson += data['data'][i]['lesson_number'] + ": " + data['data'][i]['lesson_name'] + " - " + \
@@ -224,7 +225,8 @@ def get_day_timetable(chat_id, group, week_day_param, week_num_param,
             timetable = on['week_days'][week_day] + ":\n"
             for lesson in data['data']:
                 timetable += lesson['lesson_number'] + ": " + \
-                (lesson['lesson_full_name'] if full_lesson_name else lesson['lesson_name']) + " - " + \
+                (lesson['lesson_full_name'] if full_lesson_name else lesson['lesson_name']) + \
+                (" (" + lesson['lesson_type'] + ")" if lesson['lesson_type'] else "") + " - " + \
                 (lesson['lesson_room'] if lesson['lesson_room'] else on['unknown_room']) + "\n"
                 if show_teacher:
                     if len(lesson['teachers']) > 0 and lesson['teachers'][0]['teacher_full_name']:
@@ -274,45 +276,59 @@ def index(request):
     group = chat.group #Default ""
     week_number = 0
     week_day = 0
+    lesson_number = 0
     log.info(message)
 
     if message.split()[0].split('@')[0] not in commands:
         return HttpResponse()
 
     #Process parameters
-    if len(message.split()) > 1:
-        for token in message.split():
-            token = translit_ru_en(token)
-            if re.match("[A-z][A-z][-][A-z]?[0-9][0-9][A-z]?", token):
-                group = token
-            elif re.match("[w][1|2]", token):
-                week_number = int(token[1])
-            elif re.match("[w][3-9]", token):
-                reply(chat_id, msg = on['wrong_week_param'])
-                return HttpResponse()
-            elif re.match("[1-7]", token):
-                week_day = int(token)
-            elif is_week_day(token) != 0:
-                week_day = is_week_day(token)
-            elif re.match("\w", token):
+    try:
+        if len(message.split()) > 1:
+            for token in message.split():
+                if not u"ц" in token:
+                    token = translit_ru_en(token)
+                else:
+                    group = token
+                    continue
+                if re.match("[A-z][A-z][-][A-z]?[0-9][0-9][A-z]?([(]\w+[)])?", token):
+                    group = token
+                elif re.match("[A-z][A-z][A-z]?[0-9][0-9][A-z]?([(]\w+[)])", token):
+                    group = token[:2] + '-' + token[2:]
+                    log.info(group)
+                elif re.match("[w][1|2]", token):
+                    week_number = int(token[1])
+                elif re.match("[w][3-9]", token):
+                    reply(chat_id, msg = on['wrong_week_param'])
+                    return HttpResponse()
+                elif re.match("[1-6]", token):
+                    lesson_number = int(token)
+                elif is_week_day(token) != 0:
+                    week_day = is_week_day(token)
+                elif token not in commands:
+                    reply(chat_id, msg = on['wrong_param'])
+                    return HttpResponse()
+                
+            if not group and week_number == 0 and week_day == 0 and lesson_number == 0:
                 reply(chat_id, msg = on['wrong_param'])
                 return HttpResponse()
-            
-        if not group and week_number == 0 and week_day == 0:
-            reply(chat_id, msg = on['wrong_param'])
-            return HttpResponse()
-       
+
+            #For groups like mv-31(r)
+            if len(group.split("(")) > 1:
+                group = group.split("(")[0] + " " + ("(" + group.split("(")[1] if group.split("(")[1] else "")
+
+    except Exception:
+        log.error(traceback.format_exc())
+
+    if group and not is_group_exists(group):
+        reply(chat_id, msg = on['setgroup_fail'])
+        return HttpResponse()
+
     #Command processing  
     try:    
         if message == '/start' or message.startswith("/help"):
             reply(chat_id, msg = on['help'])
 
-        elif message == '/pig':
-            output = io.StringIO()
-            img = Image.open("./request_handler/poreju.jpg")
-            img.save(output, 'JPEG')
-            reply(chat_id, img = output.getvalue())
-            
         elif message.startswith('/setgroup'):
             if len(message.split()) == 1:
                 reply(chat_id, msg = on['setgroup_empty_param'])
@@ -362,13 +378,13 @@ def index(request):
         elif message.startswith("/now"):
             get_one_pair(chat_id, group)
         
-        elif message == "/authors":
+        elif message.startswith("/authors"):
             reply(chat_id, msg = on['authors'])
             
-        elif message == "/next":
+        elif message.startswith("/next"):
             get_one_pair(chat_id, group, next = True)  
         
-        elif message == "/who":
+        elif message.startswith("/who"):
             get_one_pair(chat_id, group, teacher = True)   
         
         
