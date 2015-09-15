@@ -19,6 +19,7 @@ import traceback
 #Support different languages (ru, ua)
 import miscellaneous.lang
 import miscellaneous.key
+from miscellaneous.botan import track
 
 #Dictionary for answers
 on = None
@@ -189,7 +190,7 @@ def get_one_pair(chat_id, group,\
                     get_one_pair(chat_id, group, cur_lesson = 1, week_day = week_day + 1)
     except Exception:
             log.error(traceback.format_exc())
-        
+
 def get_day_timetable(chat_id, group, week_day_param, week_num_param,
                       show_teacher = False, tomorrow = False,\
                       full_lesson_name = False, full_timetable = False):
@@ -253,6 +254,7 @@ def index(request):
         data = json.loads(request.body.decode('utf-8'))
         chat_id = data['message']['chat']['id']
         message = data['message']['text']
+        user_id = data['message']['from']['id']
         chat = Chat.objects.get(pk = chat_id)
     #Unknown request
     except KeyError:
@@ -324,18 +326,22 @@ def index(request):
         reply(chat_id, msg = on['setgroup_fail'])
         return HttpResponse()
 
+    track(miscellaneous.key.BOTAN_TOKEN, user_id, {group : 1}, "Group")
     #Command processing  
     try:    
         if message == '/start' or message.startswith("/help"):
+            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/help")
             reply(chat_id, msg = on['help'])
 
         elif message.startswith('/setgroup'):
+            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/setgroup")
             if len(message.split()) == 1:
                 reply(chat_id, msg = on['setgroup_empty_param'])
             else:
                 set_group(chat_id, group)
                 
         elif message == '/changelang':
+            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/changelang")
             if chat.language == "ru":
                 chat.language = "ua"
                 reply(chat_id, msg = miscellaneous.lang.ua['change_lang'])
@@ -345,6 +351,7 @@ def index(request):
             chat.save()
 
         elif message.startswith("/tt"):
+            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/tt")
             if week_number == 0:
                 week_range = list(range(1,3))
             else:
@@ -367,24 +374,30 @@ def index(request):
             get_day_timetable(chat_id, group, week_day, week_number, full_lesson_name = True)
             
         elif message.startswith('/today'):
+            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/today")
             get_day_timetable(chat_id, group, week_day, week_number)
                 
         elif message.startswith("/teacher"):
+            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/teacher")
             get_day_timetable(chat_id, group, week_day, week_number, show_teacher = True)
             
         elif message.startswith("/tomorrow"): 
+            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/tomorrow")
             get_day_timetable(chat_id, group, week_day, week_number, tomorrow = True)
 
         elif message.startswith("/now"):
+            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/now")
             get_one_pair(chat_id, group)
         
         elif message.startswith("/authors"):
             reply(chat_id, msg = on['authors'])
             
         elif message.startswith("/next"):
+            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/next")
             get_one_pair(chat_id, group, next = True)  
         
         elif message.startswith("/who"):
+            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/who")
             get_one_pair(chat_id, group, teacher = True)   
         
         
