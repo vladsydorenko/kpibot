@@ -357,8 +357,8 @@ def index(request):
             else:
                 week_range = [week_number]
             for week_num in week_range:
+                reply(chat_id, msg = "Week #" + str(week_num)) + ":"
                 if week_day == 0:
-                    reply(chat_id, msg = "Week #" + str(week_num))
                     for week_day_iter in list(range(1,7)):
                         get_day_timetable(chat_id, group,\
                                           week_day_param = week_day_iter,\
