@@ -45,7 +45,8 @@ commands = {
     '/pig',
     '/setgroup',
     '/authors',
-    '/who'
+    '/who',
+    '/week'
 }
 
 BotURL = "https://api.telegram.org/bot%s/" % miscellaneous.key.BOT_TOKEN
@@ -151,7 +152,7 @@ def get_one_pair(chat_id, group,\
         data = raw_data.json()
 
         if data['statusCode'] == 200:
-            #Remake to for loop
+            #TODO Remake to for loop
             i = 0
             while i < len(data['data']) and int(data['data'][i]['lesson_number']) < cur_lesson:
                 i += 1
@@ -357,7 +358,7 @@ def index(request):
             else:
                 week_range = [week_number]
             for week_num in week_range:
-                reply(chat_id, msg = "Week #" + str(week_num)) + ":"
+                reply(chat_id, msg = "Week #" + str(week_num) + ":")
                 if week_day == 0:
                     for week_day_iter in list(range(1,7)):
                         get_day_timetable(chat_id, group,\
@@ -398,8 +399,11 @@ def index(request):
         
         elif message.startswith("/who"):
             track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/who")
-            get_one_pair(chat_id, group, teacher = True)   
-        
+            get_one_pair(chat_id, group, teacher = True)
+
+        elif message.startswith("/week"):
+            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/week")
+            reply(chat_id, msg = on['week'].format(datetime.date.today().isocalendar()[1] % 2 + 1))
         
     except Exception:
         log.error(traceback.format_exc())
