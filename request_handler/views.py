@@ -19,56 +19,20 @@ import traceback
 #Support different languages (ru, ua)
 import miscellaneous.lang
 import miscellaneous.key
-from miscellaneous.botan import track
+from miscellaneous.botan  import track
+from miscellaneous.arrays import commands, days, time, pairs
 
 #Dictionary for answers
 on = None
 
-days = {1: ["mon", "pn"],
-        2: ["tue", "vt"],
-        3: ["wed", "sr"],
-        4: ["thu", "cht"],
-        5: ["fri", "pt"],
-        6: ["sat", "sb"],
-        7: ["sun", "vs"]}
 
-commands = {
-    '/start',
-    '/help',
-    '/now',
-    '/next',
-    '/tomorrow',
-    '/teacher',
-    '/today',
-    '/tt',
-    '/changelang',
-    '/pig',
-    '/setgroup',
-    '/authors',
-    '/who',
-    '/week'
-}
 
 BotURL = "https://api.telegram.org/bot%s/" % miscellaneous.key.BOT_TOKEN
 
 log = logging.getLogger("request_handler")
 
-def get_current_lesson_number():
-    #Set timezone
-    os.environ['TZ'] = 'Europe/Kiev'
-    time.tzset()
-    
+def get_current_lesson_number():    
     now = datetime.datetime.now()
-    #Timetable
-    pairs = [
-        datetime.datetime(now.year, now.month, now.day, 0, 1),
-        datetime.datetime(now.year, now.month, now.day, 8, 30),
-        datetime.datetime(now.year, now.month, now.day, 10, 5),
-        datetime.datetime(now.year, now.month, now.day, 12, 00),
-        datetime.datetime(now.year, now.month, now.day, 13, 55),
-        datetime.datetime(now.year, now.month, now.day, 15, 50),
-        datetime.datetime(now.year, now.month, now.day, 17, 45),
-        datetime.datetime(now.year, now.month, now.day, 23, 59)]
         
     cur_pair = 0;
     for i in range(len(pairs) - 1):
@@ -404,6 +368,10 @@ def index(request):
         elif message.startswith("/week"):
             track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/week")
             reply(chat_id, msg = on['week'].format(datetime.date.today().isocalendar()[1] % 2 + 1))
+
+        elif message.startswith("/time"):
+            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/time")
+            reply(chat_id, msg = time)
         
     except Exception:
         log.error(traceback.format_exc())
