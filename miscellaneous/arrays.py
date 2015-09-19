@@ -34,6 +34,8 @@ time = "\
 5. 16:10 - 17:45"
 
 #Timetable
+#now = datetime.datetime.now()
+now = datetime.datetime.now()
 pairs = [
     datetime.datetime(now.year, now.month, now.day, 0, 1),
     datetime.datetime(now.year, now.month, now.day, 8, 30),

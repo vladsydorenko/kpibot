@@ -17,7 +17,7 @@ import requests
 import datetime
 import traceback
 #Support different languages (ru, ua)
-import miscellaneous.lang
+from miscellaneous.lang import ru, ua
 import miscellaneous.key
 from miscellaneous.botan  import track
 from miscellaneous.arrays import commands, days, time, pairs
@@ -33,7 +33,6 @@ log = logging.getLogger("request_handler")
 
 def get_current_lesson_number():    
     now = datetime.datetime.now()
-        
     cur_pair = 0;
     for i in range(len(pairs) - 1):
         if now > pairs[i] and now < pairs[i+1]:
@@ -84,7 +83,8 @@ def set_group(chat_id, group):
 def get_one_pair(chat_id, group,\
                  next = False, teacher = False,\
                  cur_lesson = -1, week_day = -1,\
-                 change_week_number = False):
+                 change_week_number = False,
+                 show_time_to_end = False):
     try:
         if not group:
             reply(chat_id, msg = on['empty_group'])
@@ -92,6 +92,7 @@ def get_one_pair(chat_id, group,\
 
         if week_day == -1:
             week_day = datetime.date.today().weekday() + 1
+        log.info(week_day)
         
         if cur_lesson == -1:
             cur_lesson = get_current_lesson_number()
@@ -142,9 +143,14 @@ def get_one_pair(chat_id, group,\
                 lesson = on['week_days'][week_day] + ":\n"
                 lesson += data['data'][i]['lesson_number'] + ": " + data['data'][i]['lesson_name'] + " - " + \
                 (data['data'][i]['lesson_room'] if data['data'][i]['lesson_room']
-                                                else on['unknown_room'])
-                reply(chat_id, msg = lesson)
-               
+                                                else on['unknown_room']) + "\n"
+
+                if show_time_to_end:
+                    now = datetime.datetime.now()
+                    time_to_end = str((pairs[get_current_lesson_number() + 1] - now).seconds // 60)
+                    reply(chat_id, msg = lesson + on['minutes_left'].format(time_to_end))
+                else:
+                    reply(chat_id, msg = lesson)
         else:
             if not next:
                 reply(chat_id, msg = on['get_tt_error'])
@@ -236,9 +242,9 @@ def index(request):
     #Set user language
     global on
     if chat.language == "ru":
-        on = miscellaneous.lang.ru
+        on = ru
     else:
-        on = miscellaneous.lang.ua
+        on = ua
 
     group = chat.group #Default ""
     week_number = 0
@@ -282,7 +288,7 @@ def index(request):
 
             #For groups like mv-31(r)
             if len(group.split("(")) > 1:
-                group = group.split("(")[0] + " " + ("(" + group.split("(")[1] if group.split("(")[1] else "")
+                group = group.split("(")[0] + " (" + group.split("(")[1]
 
     except Exception:
         log.error(traceback.format_exc())
@@ -309,10 +315,10 @@ def index(request):
             track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/changelang")
             if chat.language == "ru":
                 chat.language = "ua"
-                reply(chat_id, msg = miscellaneous.lang.ua['change_lang'])
+                reply(chat_id, msg = ua['change_lang'])
             else:
                 chat.language = "ru"
-                reply(chat_id, msg = miscellaneous.lang.ru['change_lang'])
+                reply(chat_id, msg = ru['change_lang'])
             chat.save()
 
         elif message.startswith("/tt"):
@@ -352,7 +358,7 @@ def index(request):
 
         elif message.startswith("/now"):
             track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/now")
-            get_one_pair(chat_id, group)
+            get_one_pair(chat_id, group, show_time_to_end = True)
         
         elif message.startswith("/authors"):
             reply(chat_id, msg = on['authors'])
