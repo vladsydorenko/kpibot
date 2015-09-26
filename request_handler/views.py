@@ -172,21 +172,16 @@ def get_one_pair(chat_id, group, show_teacher = False,\
     except Exception:
             log.error(traceback.format_exc())
 
-def get_day_timetable(chat_id, group, week_day_param, week_num_param,
+def get_day_timetable(chat_id, group, week_day, week_number,
                       show_teacher, tomorrow = False, full_timetable = False):
     try:
-        if not group:
-            reply(chat_id, msg = on['empty_group'])
-            return
-
-        if week_day_param != 0:
-            week_day = week_day_param
-        else:
+        if week_day == 0:
             week_day = datetime.date.today().weekday() + 1
 
         if tomorrow:
             if week_day == 7:
                 week_day = 1
+                week_number = 3 - week_number
             else:
                 week_day += 1
         else:
@@ -194,10 +189,9 @@ def get_day_timetable(chat_id, group, week_day_param, week_num_param,
                 reply(chat_id, msg = on['sunday'])
                 return
 
-        if week_num_param == 0:
+        if week_number == 0:
             week_number = datetime.date.today().isocalendar()[1] % 2 + 1
-        else:
-            week_number = week_num_param
+
  
         filter = "{" + "\'day_number\':{0},\'lesson_week\':{1}".format(week_day, week_number) + "}"
         raw_data = requests.get("http://api.rozklad.org.ua/v2/groups/{0}/lessons?filter={1}".format(group, filter))
@@ -264,6 +258,7 @@ def index(request):
     lesson_number = 0
     show_teacher = False
     log.info(message)
+    
     if message.split()[0].split('@')[0] not in commands:
         return HttpResponse()
 
@@ -277,6 +272,7 @@ def index(request):
                 else:
                     group = token
                     continue
+
                 if re.match("[A-z][A-z][-][A-z]?[0-9][0-9][A-z]?([(]\w+[)])?", token):
                     group = token
                 elif re.match("[A-z][A-z][A-z]?[0-9][0-9][A-z]?([(]\w+[)])?", token):
@@ -307,14 +303,20 @@ def index(request):
     except Exception:
         log.error(traceback.format_exc())
 
+    # Check group correctness and existance
     if group and not is_group_exists(group):
         reply(chat_id, msg = on['setgroup_fail'])
         return HttpResponse()
+    elif not group:
+        reply(chat_id, msg = on['empty_group'])
+        return
 
+    # Check wrong parameters
     if (week_day != 0 or week_number != 0 or lesson_number != 0) and (not message.startswith("/tt")):
         reply(chat_id, msg = on['now_parameters'].format(message.split()[0].split('@')[0]))
         return HttpResponse()
 
+    # Statistics
     track(miscellaneous.key.BOTAN_TOKEN, user_id, {group : 1}, "Group") 
     track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, message.split()[0].split('@')[0])
 
