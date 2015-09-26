@@ -86,12 +86,10 @@ def set_group(chat_id, group):
     c.save()
     reply(chat_id, msg = on['setgroup_success'])
         
-def get_one_pair(chat_id, group,\
-                 next = False, teacher = False,\
-                 cur_lesson = -1, week_day = -1,\
-                 change_week_number = False,
-                 show_time_to_end = False,
-                 location = False):
+def get_one_pair(chat_id, group, show_teacher = False,\
+                 next = False, cur_lesson = -1,\
+                 week_day = -1, week_number = 0,\
+                 show_time_to_end = False, location = False):
     try:
         if not group:
             reply(chat_id, msg = on['empty_group'])
@@ -113,15 +111,13 @@ def get_one_pair(chat_id, group,\
             reply(chat_id, msg = on['no_lesson'])
             return
 
-        if not change_week_number:
+        if week_number == 0:
             week_number = datetime.date.today().isocalendar()[1] % 2 + 1
-        else:
-            week_number = 3 - (datetime.date.today().isocalendar()[1] % 2 + 1)
+
         filter = "{" + "\'day_number\':{0},\'lesson_week\':{1}".format(week_day, week_number) + "}"
         raw_data = requests.get("http://api.rozklad.org.ua/v2/groups/{0}/lessons?filter={1}".format(group, filter))
         data = raw_data.json()
         if data['statusCode'] == 200:
-            #TODO Remake to for loop
             i = 0
             while i < len(data['data']) and int(data['data'][i]['lesson_number']) < cur_lesson:
                 i += 1
@@ -132,34 +128,33 @@ def get_one_pair(chat_id, group,\
                     return
 
                 if week_day == 7:
-                    get_one_pair(chat_id, group, cur_lesson = 1, week_day = 1, change_week_number = True)
+                    get_one_pair(chat_id, group, cur_lesson = 1, week_day = 1, week_number = 3 - week_number, next = next)
                 else:
-                    get_one_pair(chat_id, group, cur_lesson = 1, week_day = week_day + 1)
+                    get_one_pair(chat_id, group, cur_lesson = 1, week_day = week_day + 1, next = next)
                 return
-                
+
+            # /where command
             if location:
                 coordinates = {}
                 coordinates['longitude'] = float(data['data'][i]['rooms'][0]['room_longitude'])
                 coordinates['latitude'] = float(data['data'][i]['rooms'][0]['room_latitude'])
                 reply(chat_id, location = coordinates)
 
-            """elif teacher:
-                if not data['data'][i]['teachers'][0]['teacher_full_name']:
-                    reply(chat_id, msg = on['no_teacher'])
-                else:
-                    reply(chat_id, msg = data['data'][i]['teachers'][0]['teacher_full_name'])"""
+            # Generating message body
             lesson = on['week_days'][week_day] + ":\n"
             lesson += data['data'][i]['lesson_number'] + ": " + data['data'][i]['lesson_name'] + " - " + \
             (data['data'][i]['lesson_room'] if data['data'][i]['lesson_room']
                                             else on['unknown_room']) + "\n"
 
-            if teacher:
+            # t parameter
+            if show_teacher:
                 if len(data['data'][i]['teachers']) > 0:
-                    for teacher in data['data'][i]['teachers']:
-                        lesson += "--- " + teacher['teacher_full_name'] + "\n"
+                    for show_teacher in data['data'][i]['teachers']:
+                        lesson += "--- " + show_teacher['teacher_full_name'] + "\n"
                 else:
                     lesson += "--- " + on['no_teacher'] + "\n"
 
+            # Add showing time to the end or lesson
             if show_time_to_end:
                 now = datetime.datetime.now()
                 time_to_end = str((pairs[get_current_lesson_number() + 1] - now).seconds // 60)
@@ -171,9 +166,9 @@ def get_one_pair(chat_id, group,\
                 reply(chat_id, msg = on['get_tt_error'])
             else:
                 if week_day == 7:
-                    get_one_pair(chat_id, group, cur_lesson = 1, week_day = 1, change_week_number = True)
+                    get_one_pair(chat_id, group, cur_lesson = 1, week_day = 1, week_number = 3 - week_number, next = next)
                 else:
-                    get_one_pair(chat_id, group, cur_lesson = 1, week_day = week_day + 1)
+                    get_one_pair(chat_id, group, cur_lesson = 1, week_day = week_day + 1, next = next)
     except Exception:
             log.error(traceback.format_exc())
 
@@ -322,6 +317,7 @@ def index(request):
 
     track(miscellaneous.key.BOTAN_TOKEN, user_id, {group : 1}, "Group") 
     track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, message.split()[0].split('@')[0])
+
     #Command processing 
     try:    
         if message == '/start' or message.startswith("/help"):
@@ -346,7 +342,7 @@ def index(request):
             #To specify lesson number
             if lesson_number != 0:
                 if week_day != 0 and week_number != 0:
-                    get_one_pair(chat_id, group, teacher=show_teacher, cur_lesson=lesson_number)
+                    get_one_pair(chat_id, group, show_teacher=show_teacher, cur_lesson=lesson_number)
                 else:
                     reply(chat_id, msg = on['should_specify_params'])
                 return HttpResponse()
@@ -375,7 +371,7 @@ def index(request):
             get_day_timetable(chat_id, group, week_day, week_number, show_teacher, tomorrow = True)
 
         elif message.startswith("/now"):
-            get_one_pair(chat_id, group, teacher=show_teacher, show_time_to_end = True)
+            get_one_pair(chat_id, group, show_teacher=show_teacher, show_time_to_end = True)
 
         elif message.startswith("/where"):
             get_one_pair(chat_id, group, location = True)
@@ -384,10 +380,10 @@ def index(request):
             reply(chat_id, msg = on['authors'])
             
         elif message.startswith("/next"):
-            get_one_pair(chat_id, group, teacher=show_teacher, next = True)  
+            get_one_pair(chat_id, group, show_teacher = show_teacher, next = True)  
         
         elif message.startswith("/who"):
-            get_one_pair(chat_id, group, teacher = True)
+            get_one_pair(chat_id, group, show_teacher = True)
 
         elif message.startswith("/week"):
             reply(chat_id, msg = on['week'].format(datetime.date.today().isocalendar()[1] % 2 + 1))
