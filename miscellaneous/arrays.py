@@ -23,7 +23,10 @@ commands = {
     '/authors',
     '/who',
     '/week',
-    '/time'
+    '/time',
+    '/where',
+    '/bug',
+    '/idea'
 }
 
 time = "\

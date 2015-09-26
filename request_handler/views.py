@@ -4,9 +4,10 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.template.defaultfilters import slugify
 from request_handler.models import Chat
-from transliterate import translit
 from django.http import HttpResponse
-from PIL import Image
+from django.core.mail import mail_admins
+from transliterate import translit
+
 import re
 import os
 import io
@@ -16,16 +17,14 @@ import logging
 import requests
 import datetime
 import traceback
-#Support different languages (ru, ua)
-from miscellaneous.lang import ru, ua
 import miscellaneous.key
+#Support different languages (ru, ua)
+from miscellaneous.lang   import ru, ua
 from miscellaneous.botan  import track
 from miscellaneous.arrays import commands, days, time, pairs
 
 #Dictionary for answers
 on = None
-
-
 
 BotURL = "https://api.telegram.org/bot%s/" % miscellaneous.key.BOT_TOKEN
 
@@ -58,12 +57,19 @@ def translit_ru_en(group):
     else:
         return group
 
-def reply(chat_id, msg = None, img = None):
+def reply(chat_id, msg = None, location = None):
     try:
         if msg:
             requests.post(BotURL + 'sendMessage', data = {
                 'chat_id': str(chat_id),
                 'text': msg.encode('utf-8'),
+            })
+        elif location:
+            log.info(location)
+            requests.post(BotURL + 'sendLocation', data = {
+                'chat_id': str(chat_id),
+                'latitude' : location['latitude'],
+                'longitude' : location['longitude'],
             })
     except Exception:
        log.error(traceback.format_exc())
@@ -84,7 +90,8 @@ def get_one_pair(chat_id, group,\
                  next = False, teacher = False,\
                  cur_lesson = -1, week_day = -1,\
                  change_week_number = False,
-                 show_time_to_end = False):
+                 show_time_to_end = False,
+                 location = False):
     try:
         if not group:
             reply(chat_id, msg = on['empty_group'])
@@ -92,8 +99,7 @@ def get_one_pair(chat_id, group,\
 
         if week_day == -1:
             week_day = datetime.date.today().weekday() + 1
-        log.info(week_day)
-        
+
         if cur_lesson == -1:
             cur_lesson = get_current_lesson_number()
         elif cur_lesson == 6:
@@ -111,11 +117,9 @@ def get_one_pair(chat_id, group,\
             week_number = datetime.date.today().isocalendar()[1] % 2 + 1
         else:
             week_number = 3 - (datetime.date.today().isocalendar()[1] % 2 + 1)
-
         filter = "{" + "\'day_number\':{0},\'lesson_week\':{1}".format(week_day, week_number) + "}"
         raw_data = requests.get("http://api.rozklad.org.ua/v2/groups/{0}/lessons?filter={1}".format(group, filter))
         data = raw_data.json()
-
         if data['statusCode'] == 200:
             #TODO Remake to for loop
             i = 0
@@ -133,24 +137,35 @@ def get_one_pair(chat_id, group,\
                     get_one_pair(chat_id, group, cur_lesson = 1, week_day = week_day + 1)
                 return
                 
-            if teacher:
-                log.info(data['data'][i]['teachers'][0]['teacher_full_name'])
+            if location:
+                coordinates = {}
+                coordinates['longitude'] = float(data['data'][i]['rooms'][0]['room_longitude'])
+                coordinates['latitude'] = float(data['data'][i]['rooms'][0]['room_latitude'])
+                reply(chat_id, location = coordinates)
+
+            """elif teacher:
                 if not data['data'][i]['teachers'][0]['teacher_full_name']:
                     reply(chat_id, msg = on['no_teacher'])
                 else:
-                    reply(chat_id, msg = data['data'][i]['teachers'][0]['teacher_full_name'])
-            else:
-                lesson = on['week_days'][week_day] + ":\n"
-                lesson += data['data'][i]['lesson_number'] + ": " + data['data'][i]['lesson_name'] + " - " + \
-                (data['data'][i]['lesson_room'] if data['data'][i]['lesson_room']
-                                                else on['unknown_room']) + "\n"
+                    reply(chat_id, msg = data['data'][i]['teachers'][0]['teacher_full_name'])"""
+            lesson = on['week_days'][week_day] + ":\n"
+            lesson += data['data'][i]['lesson_number'] + ": " + data['data'][i]['lesson_name'] + " - " + \
+            (data['data'][i]['lesson_room'] if data['data'][i]['lesson_room']
+                                            else on['unknown_room']) + "\n"
 
-                if show_time_to_end:
-                    now = datetime.datetime.now()
-                    time_to_end = str((pairs[get_current_lesson_number() + 1] - now).seconds // 60)
-                    reply(chat_id, msg = lesson + on['minutes_left'].format(time_to_end))
+            if teacher:
+                if len(data['data'][i]['teachers']) > 0:
+                    for teacher in data['data'][i]['teachers']:
+                        lesson += "--- " + teacher['teacher_full_name'] + "\n"
                 else:
-                    reply(chat_id, msg = lesson)
+                    lesson += "--- " + on['no_teacher'] + "\n"
+
+            if show_time_to_end:
+                now = datetime.datetime.now()
+                time_to_end = str((pairs[get_current_lesson_number() + 1] - now).seconds // 60)
+                reply(chat_id, msg = lesson + on['minutes_left'].format(time_to_end))
+            else:
+                reply(chat_id, msg = lesson)
         else:
             if not next:
                 reply(chat_id, msg = on['get_tt_error'])
@@ -163,17 +178,16 @@ def get_one_pair(chat_id, group,\
             log.error(traceback.format_exc())
 
 def get_day_timetable(chat_id, group, week_day_param, week_num_param,
-                      show_teacher = False, tomorrow = False,\
-                      full_lesson_name = False, full_timetable = False):
+                      show_teacher, tomorrow = False, full_timetable = False):
     try:
         if not group:
             reply(chat_id, msg = on['empty_group'])
             return
 
-        week_day = datetime.date.today().weekday() + 1
-
         if week_day_param != 0:
             week_day = week_day_param
+        else:
+            week_day = datetime.date.today().weekday() + 1
 
         if tomorrow:
             if week_day == 7:
@@ -195,14 +209,16 @@ def get_day_timetable(chat_id, group, week_day_param, week_num_param,
         data = raw_data.json()
         if data['statusCode'] == 200:
             timetable = on['week_days'][week_day] + ":\n"
+
             for lesson in data['data']:
-                timetable += lesson['lesson_number'] + ": " + \
-                (lesson['lesson_full_name'] if full_lesson_name else lesson['lesson_name']) + \
+                timetable += lesson['lesson_number'] + ": " + lesson['lesson_name'] + \
                 (" (" + lesson['lesson_type'] + ")" if lesson['lesson_type'] else "") + " - " + \
                 (lesson['lesson_room'] if lesson['lesson_room'] else on['unknown_room']) + "\n"
+
                 if show_teacher:
-                    if len(lesson['teachers']) > 0 and lesson['teachers'][0]['teacher_full_name']:
-                        timetable += "--- " + lesson['teachers'][0]['teacher_full_name'] + "\n"
+                    if len(lesson['teachers']) > 0:
+                        for teacher in lesson['teachers']:
+                            timetable += "--- " + teacher['teacher_full_name'] + "\n"
                     else:
                         timetable += "--- " + on['no_teacher'] + "\n"
 
@@ -227,10 +243,6 @@ def index(request):
         message = data['message']['text']
         user_id = data['message']['from']['id']
         chat = Chat.objects.get(pk = chat_id)
-    #Unknown request
-    except KeyError:
-        log.error(traceback.format_exc())
-        return HttpResponse()
     #If chat not in database
     except Chat.DoesNotExist:
         chat = Chat(chat_id = chat_id, group = "")
@@ -246,12 +258,17 @@ def index(request):
     else:
         on = ua
 
+    if message.startswith("/bug") or message.startswith("/idea"):
+        mail_admins('Bug or Idea', message)
+        reply(chat_id, msg = on['email_sent'])
+        return HttpResponse()        
+
     group = chat.group #Default ""
     week_number = 0
     week_day = 0
     lesson_number = 0
+    show_teacher = False
     log.info(message)
-
     if message.split()[0].split('@')[0] not in commands:
         return HttpResponse()
 
@@ -259,16 +276,16 @@ def index(request):
     try:
         if len(message.split()) > 1:
             for token in message.split():
-                if not u"ц" in token:
+                #TODO Костыли и велосипеды
+                if not u"ц" in token and not "(" in token:
                     token = translit_ru_en(token)
                 else:
                     group = token
                     continue
                 if re.match("[A-z][A-z][-][A-z]?[0-9][0-9][A-z]?([(]\w+[)])?", token):
                     group = token
-                elif re.match("[A-z][A-z][A-z]?[0-9][0-9][A-z]?([(]\w+[)])", token):
+                elif re.match("[A-z][A-z][A-z]?[0-9][0-9][A-z]?([(]\w+[)])?", token):
                     group = token[:2] + '-' + token[2:]
-                    log.info(group)
                 elif re.match("[w][1|2]", token):
                     week_number = int(token[1])
                 elif re.match("[w][3-9]", token):
@@ -276,6 +293,8 @@ def index(request):
                     return HttpResponse()
                 elif re.match("[1-6]", token):
                     lesson_number = int(token)
+                elif re.match("[t|T]", token):
+                    show_teacher = True
                 elif is_week_day(token) != 0:
                     week_day = is_week_day(token)
                 elif token not in commands:
@@ -297,22 +316,24 @@ def index(request):
         reply(chat_id, msg = on['setgroup_fail'])
         return HttpResponse()
 
-    track(miscellaneous.key.BOTAN_TOKEN, user_id, {group : 1}, "Group")
-    #Command processing  
+    if (week_day != 0 or week_number != 0 or lesson_number != 0) and (not message.startswith("/tt")):
+        reply(chat_id, msg = on['now_parameters'].format(message.split()[0].split('@')[0]))
+        return HttpResponse()
+
+    track(miscellaneous.key.BOTAN_TOKEN, user_id, {group : 1}, "Group") 
+    track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, message.split()[0].split('@')[0])
+    #Command processing 
     try:    
         if message == '/start' or message.startswith("/help"):
-            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/help")
             reply(chat_id, msg = on['help'])
 
         elif message.startswith('/setgroup'):
-            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/setgroup")
             if len(message.split()) == 1:
                 reply(chat_id, msg = on['setgroup_empty_param'])
             else:
                 set_group(chat_id, group)
                 
         elif message == '/changelang':
-            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/changelang")
             if chat.language == "ru":
                 chat.language = "ua"
                 reply(chat_id, msg = ua['change_lang'])
@@ -322,7 +343,14 @@ def index(request):
             chat.save()
 
         elif message.startswith("/tt"):
-            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/tt")
+            #To specify lesson number
+            if lesson_number != 0:
+                if week_day != 0 and week_number != 0:
+                    get_one_pair(chat_id, group, teacher=show_teacher, cur_lesson=lesson_number)
+                else:
+                    reply(chat_id, msg = on['should_specify_params'])
+                return HttpResponse()
+
             if week_number == 0:
                 week_range = list(range(1,3))
             else:
@@ -332,51 +360,39 @@ def index(request):
                 if week_day == 0:
                     for week_day_iter in list(range(1,7)):
                         get_day_timetable(chat_id, group,\
-                                          week_day_param = week_day_iter,\
-                                          week_num_param = week_num,\
+                                          week_day_iter,\
+                                          week_num, show_teacher,\
                                           full_timetable = True)
                 else:
                     get_day_timetable(chat_id, group,\
-                                          week_day_param = week_day,\
-                                          week_num_param = week_num)
+                                      week_day,\
+                                      week_num, show_teacher)
         
-        #Hidden function
-        elif message.startswith("/ttfullname"):
-            get_day_timetable(chat_id, group, week_day, week_number, full_lesson_name = True)
-            
         elif message.startswith('/today'):
-            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/today")
-            get_day_timetable(chat_id, group, week_day, week_number)
-                
-        elif message.startswith("/teacher"):
-            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/teacher")
-            get_day_timetable(chat_id, group, week_day, week_number, show_teacher = True)
+            get_day_timetable(chat_id, group, week_day, week_number, show_teacher)
             
         elif message.startswith("/tomorrow"): 
-            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/tomorrow")
-            get_day_timetable(chat_id, group, week_day, week_number, tomorrow = True)
+            get_day_timetable(chat_id, group, week_day, week_number, show_teacher, tomorrow = True)
 
         elif message.startswith("/now"):
-            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/now")
-            get_one_pair(chat_id, group, show_time_to_end = True)
+            get_one_pair(chat_id, group, teacher=show_teacher, show_time_to_end = True)
+
+        elif message.startswith("/where"):
+            get_one_pair(chat_id, group, location = True)
         
         elif message.startswith("/authors"):
             reply(chat_id, msg = on['authors'])
             
         elif message.startswith("/next"):
-            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/next")
-            get_one_pair(chat_id, group, next = True)  
+            get_one_pair(chat_id, group, teacher=show_teacher, next = True)  
         
         elif message.startswith("/who"):
-            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/who")
             get_one_pair(chat_id, group, teacher = True)
 
         elif message.startswith("/week"):
-            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/week")
             reply(chat_id, msg = on['week'].format(datetime.date.today().isocalendar()[1] % 2 + 1))
 
         elif message.startswith("/time"):
-            track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, "/time")
             reply(chat_id, msg = time)
         
     except Exception:
