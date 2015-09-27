@@ -175,24 +175,21 @@ def get_one_pair(chat_id, group, show_teacher = False,\
 def get_day_timetable(chat_id, group, week_day, week_number,
                       show_teacher, tomorrow = False, full_timetable = False):
     try:
-        if week_day == 0:
-            week_day = datetime.date.today().weekday() + 1
-
-        if tomorrow:
-            if week_day == 7:
-                week_day = 1
-                week_number = 3 - week_number
-            else:
-                week_day += 1
-        else:
-            if week_day == 7:
-                reply(chat_id, msg = on['sunday'])
-                return
-
         if week_number == 0:
             week_number = datetime.date.today().isocalendar()[1] % 2 + 1
 
- 
+        if week_day == 0:
+            week_day = datetime.date.today().weekday() + 1
+
+        if week_day == 7:
+            if tomorrow:
+                week_day = 1
+                week_number = 3 - week_number
+            else:
+                reply(chat_id, msg = on['sunday'])
+                return
+        else:
+            week_day += 1
         filter = "{" + "\'day_number\':{0},\'lesson_week\':{1}".format(week_day, week_number) + "}"
         raw_data = requests.get("http://api.rozklad.org.ua/v2/groups/{0}/lessons?filter={1}".format(group, filter))
         data = raw_data.json()
@@ -258,7 +255,7 @@ def index(request):
     lesson_number = 0
     show_teacher = False
     log.info(message)
-    
+
     if message.split()[0].split('@')[0] not in commands:
         return HttpResponse()
 
