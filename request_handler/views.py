@@ -70,6 +70,9 @@ def index(request):
                 chat.language = "ua"
             else:
                 chat.language = "ru"
+            chat.save()
+            reply(chat_id, msg = responses['change_lang']
+
         if command in no_timetable_commands:
             return HttpResponse()
 
