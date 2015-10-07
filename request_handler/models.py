@@ -1,4 +1,5 @@
 from django.db import models
+from miscellaneous.utils import get_group_by_id
 
 class Chat(models.Model):
     chat_id = models.IntegerField(primary_key=True)
@@ -7,4 +8,4 @@ class Chat(models.Model):
     group_id = models.IntegerField(default=0)
 
     def __str__(self):
-        return str(self.chat_id) + " - " + self.group_id
+        return str(self.chat_id) + " - " + get_group_by_id(self.group_id)
