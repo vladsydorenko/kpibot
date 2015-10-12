@@ -17,6 +17,7 @@ commands = {
     '/idea': 150,
     '/next': 2,
     '/now': 2,
+    '/remind': 0,
     '/setgroup': 1,
     '/setteacher': 1,
     '/start': 0,
@@ -30,14 +31,15 @@ commands = {
 }
 
 no_timetable_commands = [
-    '/start',
-    '/help',
-    '/time',
-    '/week',
-    '/changelang',
     '/authors',
     '/bug',
+    '/changelang',
+    '/help',
     '/idea',
+    '/remind',
+    '/start',
+    '/time',
+    '/week'
 ]
 
 time = "\

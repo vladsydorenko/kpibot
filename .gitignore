@@ -60,3 +60,4 @@ logs/
 db.sqlite3
 key.py
 settings.py
+*.rdb

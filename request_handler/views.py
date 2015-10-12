@@ -16,7 +16,7 @@ from miscellaneous.arrays import commands, no_timetable_commands, time
 from miscellaneous.utils import reply, get_group_by_id
 from request_handler.timetable import GroupTimetable, TeacherTimetable
 import miscellaneous.key
-    
+
 log = logging.getLogger("request_handler")
 
 @csrf_exempt
@@ -65,6 +65,13 @@ def index(request):
             reply(chat_id, msg = responses['week'].format(datetime.date.today().isocalendar()[1] % 2 + 1))
         elif command == "/time":
             reply(chat_id, msg = time)
+        elif command == "/remind":
+            chat.remind = not chat.remind
+            chat.save()
+            if chat.remind:
+                reply(chat_id, responses['reminder_on'])
+            else:
+                reply(chat_id, responses['reminder_off'])
         elif command == "/changelang":
             if chat.language == "ru":
                 chat.language = "ua"
