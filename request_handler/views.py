@@ -43,6 +43,9 @@ def index(request):
         responses = ru
     else:
         responses = ua
+    # Make commands and parameters case insensitive    
+    message = message.lower()
+    
     try:
         # Check command existance
         command = message.split()[0].split('@')[0]
