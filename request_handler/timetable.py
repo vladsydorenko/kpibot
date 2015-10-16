@@ -190,7 +190,7 @@ class Timetable(object):
         # Add showing time to the end or lesson for /now command
         if show_time_to_end:
             now = datetime.datetime.now()
-            time_to_end = str((pairs[self.lesson_number + 1] - now).total_seconds() // 60)
+            time_to_end = str(int((pairs[self.lesson_number + 1] - now).total_seconds() // 60))
             reply(self.chat_id, msg = result + self.responses['minutes_left'].format(time_to_end))
         else:
             reply(self.chat_id, msg = result)
