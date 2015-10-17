@@ -13,7 +13,7 @@ import datetime
 from miscellaneous.lang   import ru, ua
 from miscellaneous.botan  import track
 from miscellaneous.arrays import commands, no_timetable_commands, time
-from miscellaneous.utils import reply, get_group_by_id
+from miscellaneous.utils import reply, get_group_name_by_id
 from request_handler.timetable import GroupTimetable, TeacherTimetable
 import miscellaneous.key
 
@@ -53,7 +53,7 @@ def index(request):
             return HttpResponse()
 
         # Statistics
-        track(miscellaneous.key.BOTAN_TOKEN, user_id, {get_group_by_id(chat.group_id) : 1}, "Group") 
+        track(miscellaneous.key.BOTAN_TOKEN, user_id, {get_group_name_by_id(chat.group_id) : 1}, "Group") 
         track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, command)
 
         # If command doesn't need timetable

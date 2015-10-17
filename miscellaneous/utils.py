@@ -1,23 +1,40 @@
+from django.template.defaultfilters import slugify
+
 import re
+import json
 import datetime
 import requests
-import miscellaneous.key
 
 from transliterate import translit
-from django.template.defaultfilters import slugify
-from miscellaneous.arrays import commands, days, time, pairs
+
+import miscellaneous.key
+from   miscellaneous.arrays import commands, days, time, pairs
 
 BotURL = "https://api.telegram.org/bot%s/" % miscellaneous.key.BOT_TOKEN
 
 class StopException(Exception):
     pass
 
-def reply(chat_id, msg = None, location = None):
+def reply(chat_id, msg = None, location = None, keyboard = None):
     if msg:
-        requests.post(BotURL + 'sendMessage', data = {
-            'chat_id': str(chat_id),
-            'text': msg.encode('utf-8'),
-        })
+        reply_markup = {}
+        if not keyboard:
+            reply_markup['hide_keyboard'] = True
+            requests.post(BotURL + 'sendMessage', data = {
+                'chat_id': str(chat_id),
+                'text': msg.encode('utf-8'),
+                'reply_markup': json.dumps(reply_markup),
+            })
+        else:
+            reply_markup['keyboard'] = keyboard
+            reply_markup['resize_keyboard'] = True
+            reply_markup['one_time_keyboard'] = True
+
+            requests.post(BotURL + 'sendMessage', data = {
+                'chat_id': str(chat_id),
+                'text': msg.encode('utf-8'),
+                'reply_markup': json.dumps(reply_markup),
+            })
     elif location:
         requests.post(BotURL + 'sendLocation', data = {
             'chat_id': str(chat_id),
@@ -26,27 +43,28 @@ def reply(chat_id, msg = None, location = None):
         })
     
 def get_group_id_by_name(group_name):
-    #TODO: Change in new API
-    if '(' in group_name:
-        group_name = group_name.split("(")[0] + " (" + group_name.split("(")[1]
-        
-    raw_data = requests.get("http://api.rozklad.org.ua/v2/groups/%s" % group_name)
-    data = raw_data.json()
-    if data['statusCode'] == 200:
-        return data['data']['group_id']
+    from request_handler.models import Group
+    try:
+        # Check same groups (need specialization)
+        query = Group.objects.all().filter(group_name__contains = group_name + "(")
+        if len(query) != 0:
+            return -2
 
-    return False
+        group = Group.objects.get(group_name = group_name)
+        return group.group_id
+    except Group.DoesNotExist:
+        return -1
 
-def get_group_by_id(group_id):
-    raw_data = requests.get("http://api.rozklad.org.ua/v2/groups/%s" % group_id)
-    data = raw_data.json()
-    if data['statusCode'] == 200:
-        if group_id == 0:
-            return "Teacher"
-        else:
-            return data['data']['group_full_name']
+def get_group_name_by_id(group_id):
+    from request_handler.models import Group
+    if group_id == 0:
+        return "Teacher"
 
-    return False
+    try:   
+        group = Group.objects.get(group_id = group_id)
+        return group.group_name
+    except Group.DoesNotExist:
+        return False
 
 def get_current_lesson_number():    
     now = datetime.datetime.now()
