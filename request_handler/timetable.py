@@ -90,9 +90,9 @@ class Timetable(object):
             reply(self.chat_id, self.responses['wrong_parameters_number'])
         elif command != "/tt" and (self.week != 0 or self.day != 0 or self.lesson_number != 0):
             reply(self.chat_id, msg = self.responses['wrong_parameter'])
-        elif (command != "/setteacher" and command != "/teachertt") and (self.teacher_query != "" or self.teacher_id != 0):
+        elif (command != "/setteacher" and command != "/teacher") and (self.teacher_query != "" or self.teacher_id != 0):
             reply(self.chat_id, msg = self.responses['wrong_parameter'])
-        elif (command == "/setteacher" or command == "/teachertt") and self.teacher_id == 0 and self.teacher_query == "":
+        elif (command == "/setteacher" or command == "/teacher") and self.teacher_id == 0 and self.teacher_query == "":
             reply(self.chat_id, msg = self.responses['no_required_parameter'])
         elif command == "/setgroup" and self.group_id == -1:
             reply(self.chat_id, msg = self.responses['unknown_group'])
@@ -329,7 +329,7 @@ class Timetable(object):
             for teacher in teachers:
                 row = []
                 if is_teachertt:
-                    row.append("/teachertt %s" % teacher['teacher_id'])
+                    row.append("/teacher %s" % teacher['teacher_id'])
                 else:
                     row.append("/setteacher %s" % teacher['teacher_id'])
                 keyboard.append(row)
@@ -469,7 +469,7 @@ from django.views.decorators.csrf import csrf_exempt
 @csrf_exempt
 def test(request):
     try:
-        tt = GroupTimetable(111791142, "/teachertt 346")
+        tt = GroupTimetable(111791142, "/teacher 2895")
         tt.teachertt()
     except Exception:
         import traceback;

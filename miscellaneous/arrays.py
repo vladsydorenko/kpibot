@@ -28,7 +28,7 @@ commands = {
     '/week': 0,
     '/where': 1,
     '/who': 1,
-    '/teachertt': 3,
+    '/teacher': 3,
 }
 
 no_timetable_commands = [

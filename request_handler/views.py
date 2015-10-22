@@ -114,7 +114,7 @@ def index(request):
             tt.where()
         elif command == "/who":
             tt.who()
-        elif command == "/teachertt":
+        elif command == "/teacher":
             tt.teachertt()
     except:
         pass
