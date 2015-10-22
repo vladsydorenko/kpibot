@@ -19,7 +19,7 @@ commands = {
     '/now': 2,
     '/remind': 0,
     '/setgroup': 1,
-    '/setteacher': 1,
+    '/setteacher': 3,
     '/start': 0,
     '/time': 0,
     '/today': 2,
@@ -28,6 +28,7 @@ commands = {
     '/week': 0,
     '/where': 1,
     '/who': 1,
+    '/teachertt': 3,
 }
 
 no_timetable_commands = [

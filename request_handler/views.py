@@ -17,8 +17,6 @@ from miscellaneous.utils import reply, get_group_name_by_id
 from request_handler.timetable import GroupTimetable, TeacherTimetable
 import miscellaneous.key
 
-log = logging.getLogger("request_handler")
-
 @csrf_exempt
 @require_http_methods(["POST"])
 def index(request):
@@ -97,7 +95,7 @@ def index(request):
         if tt.is_wrong_parameter:
             return HttpResponse()
 
-        #Command processing        
+        #Command processing
         if command == "/setgroup": 
             tt.setgroup()
         elif command == "/setteacher": 
@@ -116,7 +114,9 @@ def index(request):
             tt.where()
         elif command == "/who":
             tt.who()
+        elif command == "/teachertt":
+            tt.teachertt()
     except:
-        log.error(traceback.format_exc())
+        pass
     finally:
         return HttpResponse()

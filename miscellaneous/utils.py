@@ -5,8 +5,6 @@ import json
 import datetime
 import requests
 
-from transliterate import translit
-
 import miscellaneous.key
 from   miscellaneous.arrays import commands, days, time, pairs
 
@@ -75,14 +73,20 @@ def get_current_lesson_number():
             
     return cur_lesson
 
-def translit_ru_en(group):
-    if is_cyrillic(group):
-        return translit(group, 'ru', reversed = True)
-    else:
-        return group
-
 def is_cyrillic(s):
     return not len(slugify(s)) == len(s)
+
+def transliterate(text):
+    symbols = ("abcdefghijklmnopqrstuvwxyz",
+               "абцдефгхижклмнопкрстуввхуз")
+
+    #tr_en_ru = {ord(a):ord(b) for a, b in zip(*symbols)}
+    tr_en_ua = str.maketrans("abcdefghijklmnopqrstuvwxyz",
+                             "абцдєфгхіжклмнопкрстуввхуз")
+
+    if not is_cyrillic(text):
+        return text.translate(tr_en_ua)
+    return text
 
 def get_week_day(token):
     for day in days:

@@ -4,18 +4,13 @@ import re
 import json
 import requests
 import datetime
-
-# 3rd-party libs
-from transliterate import translit
-import logging
 import traceback
-import datetime
 
 # Own modules
 import miscellaneous.key
 import miscellaneous.utils as utils
 from miscellaneous.lang  import ru, ua
-from miscellaneous.utils import reply, get_current_lesson_number
+from miscellaneous.utils import reply, get_current_lesson_number, transliterate
 from miscellaneous.arrays import pairs, commands
 
 
@@ -67,6 +62,7 @@ class Timetable(object):
                 token = token.replace('-','')
                 self.parameters.append(token)
                 if re.match("[A-zА-я][A-zА-я][A-zА-я]?[z|з]?[0-9]+[A-zА-я]?\(?[A-zА-я]*\)?", token):
+                    token = transliterate(token)
                     self.group_id = utils.get_group_id_by_name(token[:2] + '-' + token[2:])
                     if self.group_id == -2:
                         self.group_name = token[:2] + '-' + token[2:]
@@ -77,14 +73,14 @@ class Timetable(object):
                     self.week = datetime.date.today().isocalendar()[1] % 2 + 1
                 elif utils.get_week_day(token):
                     self.day = utils.get_week_day(token)
-                elif re.match("[1-6]", token):
+                elif re.match("\b[1-6]\b", token):
                     self.lesson_number = int(token)
                 elif re.match("[t]", token):
                     self.show_teacher = True
                 elif re.match("[0-9]+", token):
                     self.teacher_id = int(token)
                 elif re.match("[A-zА-я]+", token):
-                    self.teacher_query = token
+                    self.teacher_query += token if not self.teacher_query else (" " + token)
                 else:
                     reply(self.chat_id, msg = self.responses['wrong_parameter'])
                     self.is_wrong_parameter = True
@@ -94,9 +90,9 @@ class Timetable(object):
             reply(self.chat_id, self.responses['wrong_parameters_number'])
         elif command != "/tt" and (self.week != 0 or self.day != 0 or self.lesson_number != 0):
             reply(self.chat_id, msg = self.responses['wrong_parameter'])
-        elif command != "/setteacher" and (self.teacher_query != "" or self.teacher_id != 0):
+        elif (command != "/setteacher" and command != "/teachertt") and (self.teacher_query != "" or self.teacher_id != 0):
             reply(self.chat_id, msg = self.responses['wrong_parameter'])
-        elif command == "/setteacher" and self.teacher_id == 0 and self.teacher_query == "":
+        elif (command == "/setteacher" or command == "/teachertt") and self.teacher_id == 0 and self.teacher_query == "":
             reply(self.chat_id, msg = self.responses['no_required_parameter'])
         elif command == "/setgroup" and self.group_id == -1:
             reply(self.chat_id, msg = self.responses['unknown_group'])
@@ -155,11 +151,11 @@ class Timetable(object):
             if self.show_teacher:
                 if len(lesson['teachers']) > 0:
                     for teacher in lesson['teachers']:
-                        result += "—— " + (teacher['teacher_full_name']\
+                        result += "— " + (teacher['teacher_full_name']\
                                             if teacher['teacher_full_name'] \
                                             else teacher['teacher_name']) + "\n"
                 else:
-                    result += "—— " + self.responses['no_teacher'] + "\n"
+                    result += "— " + self.responses['no_teacher'] + "\n"
 
         if result:
             # Add week day as title
@@ -193,9 +189,9 @@ class Timetable(object):
         if self.show_teacher:
             if len(lesson['teachers']) > 0:
                 for teacher in lesson['teachers']:
-                    result += "—— " + teacher['teacher_full_name'] + "\n"
+                    result += "— " + teacher['teacher_full_name'] + "\n"
             else:
-                result += "—— " + self.responses['no_teacher'] + "\n"
+                result += "— " + self.responses['no_teacher'] + "\n"
 
         # Add showing time to the end or lesson for /now command
         if show_time_to_end:
@@ -303,25 +299,42 @@ class Timetable(object):
 
     def setteacher(self):
         if self.teacher_query:
-            self.setteacher_query()
+            self.answer_teacher_query()
         else:
             self.setteacher_id()
 
-    def setteacher_query(self):
+    def answer_teacher_query(self, is_teachertt = False):
         raw_data = requests.get("http://api.rozklad.org.ua/v2/teachers/?search={\'query\': \'%s\'}" % self.teacher_query)
-        data = raw_data.json()
-        
+        data = raw_data.json()        
+
         # Check teacher existance
         if data['statusCode'] != 200:
             reply(self.chat_id, self.responses['unknown_teacher'])
             return
-            
+
         # List all teachers that satisfy requirements
         teachers = data['data']
-        result = self.responses['setteacher_filter'].format(self.teacher_query)
-        for teacher in teachers:
-            result += teacher['teacher_name'] + ' - ' + str(teacher['teacher_id']) + '\n'
-        reply(self.chat_id, msg = result)
+        if len(teachers) == 1:
+            self.teacher_id = int(teachers[0]['teacher_id'])
+            if is_teachertt:
+                self.show_teacher_tt()
+            else:
+                self.setteacher_id()
+        else:
+            keyboard = []
+            if is_teachertt:
+                result = self.responses['teacher_tt']
+            else:
+                result = self.responses['setteacher_filter'].format(self.teacher_query)
+            for teacher in teachers:
+                row = []
+                if is_teachertt:
+                    row.append("/teachertt %s" % teacher['teacher_id'])
+                else:
+                    row.append("/setteacher %s" % teacher['teacher_id'])
+                keyboard.append(row)
+                result += teacher['teacher_name'] + ' - ' + teacher['teacher_id'] + '\n'
+            reply(self.chat_id, msg = result, keyboard = keyboard)
     
     def setteacher_id(self):
         c = Chat(chat_id = self.chat_id,\
@@ -330,6 +343,9 @@ class Timetable(object):
         c.save()
         reply(self.chat_id, msg = self.responses['setteacher_success'])
 
+    def show_teacher_tt(self):
+        tt = TeacherTimetable(self.chat_id, '/tt', teacher_id = self.teacher_id)
+        tt.tt()
 
 class GroupTimetable(Timetable):
     def __init__(self, chat_id, message):
@@ -387,25 +403,33 @@ class GroupTimetable(Timetable):
             
         reply(self.chat_id, msg = result)
 
+    def teachertt(self):
+        if self.teacher_query:
+            self.answer_teacher_query(is_teachertt = True)
+        else:
+            self.show_teacher_tt()
         
 class TeacherTimetable(Timetable):
-    def __init__(self, chat_id, message):
+    def __init__(self, chat_id, message, teacher_id = None):
         try:
             super().__init__(chat_id, message)
             if self.is_wrong_parameter:
                 raise utils.StopException
             
-            command = message.split()[0].split('@')[0]
-            if self.show_teacher or (self.group_id != 0 and command != "/setgroup"):
-                reply(self.chat_id, msg = self.responses['wrong_parameter_for_teacher'])
-                self.is_wrong_parameter = True
-                raise utils.StopException
+            if teacher_id:
+                self.teacher_id = teacher_id
+            else:
+                command = message.split()[0].split('@')[0]
+                if self.show_teacher or (self.group_id != 0 and command != "/setgroup"):
+                    reply(self.chat_id, msg = self.responses['wrong_parameter_for_teacher'])
+                    self.is_wrong_parameter = True
+                    raise utils.StopException
 
-            if self.teacher_id == 0:
-                chat = Chat.objects.get(pk = chat_id)
-                self.teacher_id = chat.teacher_id
+                if self.teacher_id == 0:
+                    chat = Chat.objects.get(pk = chat_id)
+                    self.teacher_id = chat.teacher_id
             
-            # Get group timetable
+            # Get teacher timetable
             raw_data = requests.get("http://api.rozklad.org.ua/v2/teachers/%i/lessons" % self.teacher_id)
             data = raw_data.json()
             if data['statusCode'] == 200:
@@ -445,8 +469,8 @@ from django.views.decorators.csrf import csrf_exempt
 @csrf_exempt
 def test(request):
     try:
-        tt = GroupTimetable(111791142, "/tt")
-        tt.tt()
+        tt = GroupTimetable(111791142, "/teachertt 346")
+        tt.teachertt()
     except Exception:
         import traceback;
         reply(111791142, msg = traceback.format_exc())
