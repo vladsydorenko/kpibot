@@ -86,7 +86,7 @@ def index(request):
             return HttpResponse()
 
         # If command require timetable
-        if chat.group_id == 0:
+        if chat.group_id == -1:
             tt = TeacherTimetable(chat_id, message)
         else:
             tt = GroupTimetable(chat_id, message)

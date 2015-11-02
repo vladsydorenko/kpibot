@@ -59,13 +59,16 @@ class Timetable(object):
         """
         if len(message.split()) > 1:
             for token in message.split()[1:]:
-                token = token.replace('-','')
                 self.parameters.append(token)
-                if re.match("[A-zА-я][A-zА-я][A-zА-я]?[z|з]?[0-9]+[A-zА-я]?\(?[A-zА-я]*\)?", token):
+                if re.match("[A-zА-я]{2,4}[-]{0,1}[A-zА-я]{0,2}[0-9]{2,3}[A-zА-я]?(\(?[A-zА-я]*\)?)", token):
                     token = transliterate(token)
-                    self.group_id = utils.get_group_id_by_name(token[:2] + '-' + token[2:])
+                    group_name = token
+                    if not '-' in token:
+                        group_name = token[:2] + '-' + token[2:]
+
+                    self.group_id = utils.get_group_id_by_name(group_name)
                     if self.group_id == -2:
-                        self.group_name = token[:2] + '-' + token[2:]
+                        self.group_name = group_name
                         self.parameters.pop()
                 elif re.match("[w][1|2]", token):
                     self.week = int(token[1])
@@ -103,7 +106,8 @@ class Timetable(object):
             keyboard = []
             for item in query:
                 row = []
-                row.append("{0} {1} ".format(command, item.group_name) + " ".join(self.parameters))
+                # TODO: Hotfixed ")". Check.
+                row.append("{0} {1}) ".format(command, item.group_name) + " ".join(self.parameters))
                 keyboard.append(row)
             reply(self.chat_id, msg = self.responses['same_group'], keyboard = keyboard)
 
@@ -338,7 +342,7 @@ class Timetable(object):
     
     def setteacher_id(self):
         c = Chat(chat_id = self.chat_id,\
-                 group_id = 0,\
+                 group_id = -1,\
                  teacher_id = self.teacher_id)
         c.save()
         reply(self.chat_id, msg = self.responses['setteacher_success'])
@@ -366,8 +370,12 @@ class GroupTimetable(Timetable):
 
             # Get group timetable
             raw_data = requests.get("http://api.rozklad.org.ua/v2/groups/%i/timetable" % self.group_id)
-            self.timetable = raw_data.json()['data']['weeks']
-            self.timetable = self.prettify(self.timetable)
+            if raw_data.json()['statusCode'] != 404:
+                self.timetable = raw_data.json()['data']['weeks']
+                self.timetable = self.prettify(self.timetable)
+            else:
+                reply(self.chat_id, msg = self.responses['no_timetable_for_group'])
+                self.is_wrong_parameter = True
         except utils.StopException:
             pass
 
@@ -469,8 +477,8 @@ from django.views.decorators.csrf import csrf_exempt
 @csrf_exempt
 def test(request):
     try:
-        tt = GroupTimetable(111791142, "/teacher 2895")
-        tt.teachertt()
+        tt = GroupTimetable(111791142, "/setgroup зв-зп41")
+        tt.setgroup()
     except Exception:
         import traceback;
         reply(111791142, msg = traceback.format_exc())
