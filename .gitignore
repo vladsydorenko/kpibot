@@ -62,3 +62,4 @@ key.py
 settings.py
 *.rdb
 *.db
+touchme

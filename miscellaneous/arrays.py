@@ -11,10 +11,8 @@ days = {1: ["mon", "pn"],
 # Set all possible commands and max. arguments quantity
 commands = {
     '/authors': 0,
-    '/bug': 150,
     '/changelang': 1,
     '/help': 0,
-    '/idea': 150,
     '/next': 2,
     '/now': 2,
     '/remind': 0,
@@ -33,10 +31,8 @@ commands = {
 
 no_timetable_commands = [
     '/authors',
-    '/bug',
     '/changelang',
     '/help',
-    '/idea',
     '/remind',
     '/start',
     '/time',

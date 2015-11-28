@@ -3,7 +3,6 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from request_handler.models import Chat
 from django.http import HttpResponse
-from django.core.mail import mail_admins
 
 import json
 import logging
@@ -57,9 +56,6 @@ def index(request):
         # If command doesn't need timetable
         if command == "/start" or command == "/help":
             reply(chat_id, msg = responses['instructions'])
-        elif command == "/bug" or command == "/idea":
-            mail_admins('Bug or Idea', message)
-            reply(chat_id, msg = responses['email_sent'])
         elif command == "/authors":
             reply(chat_id, msg = responses['authors'])
         elif command == "/week":
