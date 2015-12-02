@@ -5,16 +5,15 @@ from request_handler.models import Chat
 from django.http import HttpResponse
 
 import json
-import logging
-import traceback
 import datetime
 #Support different languages (ru, ua)
-from miscellaneous.lang   import ru, ua
-from miscellaneous.botan  import track
+from miscellaneous.lang import ru, ua
+from miscellaneous.botan import track
 from miscellaneous.arrays import commands, no_timetable_commands, time
 from miscellaneous.utils import reply, get_group_name_by_id
 from request_handler.timetable import GroupTimetable, TeacherTimetable
 import miscellaneous.key
+
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -22,15 +21,15 @@ def index(request):
     chat = Chat()
     message = ""
     chat_id = ""
-    try:        
+    try:
         data = json.loads(request.body.decode('utf-8'))
         chat_id = data['message']['chat']['id']
         user_id = data['message']['from']['id']
         message = data['message']['text']
-        chat = Chat.objects.get(pk = chat_id)
+        chat = Chat.objects.get(pk=chat_id)
     # If chat not in database
     except Chat.DoesNotExist:
-        chat = Chat(chat_id = chat_id)
+        chat = Chat(chat_id=chat_id)
         chat.save()
     except Exception:
         return HttpResponse()
@@ -40,28 +39,28 @@ def index(request):
         responses = ru
     else:
         responses = ua
-    # Make commands and parameters case insensitive    
+    # Make commands and parameters case insensitive
     message = message.lower()
-    
+
     try:
         # Check command existance
         command = message.split()[0].split('@')[0]
-        if not command in commands:
+        if command not in commands:
             return HttpResponse()
 
         # Statistics
-        track(miscellaneous.key.BOTAN_TOKEN, user_id, {get_group_name_by_id(chat.group_id) : 1}, "Group") 
+        track(miscellaneous.key.BOTAN_TOKEN, user_id, {get_group_name_by_id(chat.group_id): 1}, "Group") 
         track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, command)
 
         # If command doesn't need timetable
         if command == "/start" or command == "/help":
-            reply(chat_id, msg = responses['instructions'])
+            reply(chat_id, msg=responses['instructions'])
         elif command == "/authors":
-            reply(chat_id, msg = responses['authors'])
+            reply(chat_id, msg=responses['authors'])
         elif command == "/week":
-            reply(chat_id, msg = responses['week'].format(datetime.date.today().isocalendar()[1] % 2 + 1))
+            reply(chat_id, msg=responses['week'].format(datetime.date.today().isocalendar()[1] % 2 + 1))
         elif command == "/time":
-            reply(chat_id, msg = time)
+            reply(chat_id, msg=time)
         elif command == "/remind":
             chat.remind = not chat.remind
             chat.save()
@@ -72,10 +71,10 @@ def index(request):
         elif command == "/changelang":
             if chat.language == "ru":
                 chat.language = "ua"
-                reply(chat_id, msg = ua['change_lang'])
+                reply(chat_id, msg=ua['change_lang'])
             else:
                 chat.language = "ru"
-                reply(chat_id, msg = ru['change_lang'])
+                reply(chat_id, msg=ru['change_lang'])
             chat.save()
 
         if command in no_timetable_commands:
@@ -92,21 +91,21 @@ def index(request):
             return HttpResponse()
 
         #Command processing
-        if command == "/setgroup": 
+        if command == "/setgroup":
             tt.setgroup()
-        elif command == "/setteacher": 
+        elif command == "/setteacher":
             tt.setteacher()
         elif command == "/tt":
             tt.tt()
         elif command == "/today":
             tt.today()
-        elif command == "/tomorrow": 
+        elif command == "/tomorrow":
             tt.tomorrow()
         elif command == "/now":
             tt.now()
         elif command == "/next":
             tt.next()
-        elif command == "/where": 
+        elif command == "/where":
             tt.where()
         elif command == "/who":
             tt.who()
