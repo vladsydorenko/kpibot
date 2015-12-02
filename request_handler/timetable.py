@@ -74,7 +74,7 @@ class Timetable(object):
                     self.week = datetime.date.today().isocalendar()[1] % 2 + 1
                 elif utils.get_week_day(token):
                     self.day = utils.get_week_day(token)
-                elif re.match("\b[1-6]\b", token):
+                elif re.match("[1-6]{1,1}", token):
                     self.lesson_number = int(token)
                 elif re.match("[t]", token):
                     self.show_teacher = True
@@ -142,7 +142,7 @@ class Timetable(object):
             return
 
         # Add week day as title
-        result = self.responses['week_days'][self.day]
+        result = self.responses['week_days'][self.day] + "\n"
         # Generate message body
         for lesson_number in self.timetable[self.week][self.day]:
             lesson = self.timetable[self.week][self.day][lesson_number]
@@ -300,18 +300,18 @@ class Timetable(object):
             self.setteacher_id()
 
     def answer_teacher_query(self, is_teachertt=False):
-        raw_response = requests.get(TIMETABLE_URL + "teachers/?search=%s}" % self.teacher_query)
-        data = raw_response.json()
+        raw_response = requests.get(TIMETABLE_URL + "teachers/?search=%s" % self.teacher_query)
 
         # Check teacher existance
-        if data['statusCode'] != 200:
+        if raw_response.status_code != 200:
             reply(self.chat_id, self.responses['unknown_teacher'])
             return
 
         # List all teachers that satisfy requirements
-        teachers = data['data']
-        if len(teachers) == 1:
-            self.teacher_id = int(teachers[0]['id'])
+        response = raw_response.json()
+        teachers = response['results']
+        if response['count'] == 1:
+            self.teacher_id = teachers[0]['id']
             if is_teachertt:
                 self.show_teacher_tt()
             else:
@@ -325,11 +325,11 @@ class Timetable(object):
             for teacher in teachers:
                 row = []
                 if is_teachertt:
-                    row.append("/teacher %s" % teacher['teacher_id'])
+                    row.append("/teacher %i" % teacher['id'])
                 else:
-                    row.append("/setteacher %s" % teacher['teacher_id'])
+                    row.append("/setteacher %i" % teacher['id'])
                 keyboard.append(row)
-                result += teacher['teacher_name'] + ' - ' + teacher['teacher_id'] + '\n'
+                result += teacher['name'] + ' - ' + str(teacher['id']) + '\n'
             reply(self.chat_id, msg=result, keyboard=keyboard)
 
     def setteacher_id(self):
@@ -352,13 +352,15 @@ class Timetable(object):
             room_name = "%s-%s" % (room['name'], room['building']['name'])
             result += room_name + ", "
 
+        if not rooms:
+            result += self.responses['unknown_room']
+
         # Scrutch. TODO: think, how to optimise
         if result[-2] == ",":
             result = result[:-2]
 
-        if not rooms:
-            result += self.responses['unknown_room']
         result += "\n"
+        return result
 
 
 class GroupTimetable(Timetable):
@@ -381,8 +383,8 @@ class GroupTimetable(Timetable):
 
             # Get group timetable
             raw_response = requests.get(TIMETABLE_URL + "groups/%i/timetable.json" % self.group_id)
-            response = raw_response.json()
-            if response['statusCode'] != 404:
+            if raw_response.status_code == 200:
+                response = raw_response.json()
                 self.timetable = response['data']
                 self.timetable = utils.prettify(self.timetable)
             else:
@@ -438,8 +440,8 @@ class TeacherTimetable(Timetable):
 
             # Get teacher timetable
             raw_response = requests.get(TIMETABLE_URL + "teachers/%i/timetable.json" % self.teacher_id)
-            response = raw_response.json()
-            if response['statusCode'] == 200:
+            if raw_response.status_code == 200:
+                response = raw_response.json()
                 self.timetable = response['data']
                 self.timetable = utils.prettify(self.timetable)
             else:
@@ -463,8 +465,8 @@ from django.views.decorators.csrf import csrf_exempt
 @csrf_exempt
 def test(request):
     try:
-        tt = GroupTimetable(111791142, "/setgroup зв-зп41")
-        tt.setgroup()
+        tt = GroupTimetable(111791142, "/setteacher ром")
+        tt.setteacher()
     except Exception:
         import traceback
         reply(111791142, msg=traceback.format_exc())
