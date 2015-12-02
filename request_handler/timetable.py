@@ -6,10 +6,10 @@ import datetime
 
 # Own modules
 import miscellaneous.utils as utils
-from miscellaneous.utils import StopExecution
+from miscellaneous.utils import StopExecution, TIMETABLE_URL
 from miscellaneous.lang import ru, ua
 from miscellaneous.utils import reply, get_current_lesson_number, transliterate
-from miscellaneous.arrays import pairs, commands
+from miscellaneous.arrays import pairs, commands, types
 
 
 class Timetable(object):
@@ -141,30 +141,26 @@ class Timetable(object):
         if not self.__check_day():
             return
 
+        # Add week day as title
+        result = self.responses['week_days'][self.day]
         # Generate message body
-        result = ""
         for lesson_number in self.timetable[self.week][self.day]:
             lesson = self.timetable[self.week][self.day][lesson_number]
-            result += lesson['lesson_number'] + ": " + lesson['lesson_name'] + \
-                (" (" + lesson['lesson_type'] + ")" if lesson['lesson_type'] else "") + " - " + \
-                (lesson['lesson_room'] if lesson['lesson_room'] else self.responses['unknown_room']) + "\n"
+            result += str(lesson_number) + ": " + lesson['discipline']['name'] + \
+                (" (" + types[lesson['type']] + ")" if lesson['type'] else "") + " - "
+
+            # Add rooms to response
+            result += self.generate_rooms_string(lesson['rooms'])
 
             # If "T" parameter
             if self.show_teacher:
-                if len(lesson['teachers']) > 0:
+                if lesson['teachers']:
                     for teacher in lesson['teachers']:
-                        result += "— " + (teacher['teacher_full_name']
-                                          if teacher['teacher_full_name']
-                                          else teacher['teacher_name']) + "\n"
+                        result += "— " + teacher['name'] + "\n"
                 else:
                     result += "— " + self.responses['no_teacher'] + "\n"
 
-        if result:
-            # Add week day as title
-            result = self.responses['week_days'][self.day] + ":\n" + result
-            reply(self.chat_id, msg=result)
-        elif not self.show_full_week:
-            reply(self.chat_id, msg=self.responses['get_tt_error'])
+        reply(self.chat_id, msg=result)
 
     def __show_lesson(self, show_time_to_end=False):
         """
@@ -182,15 +178,15 @@ class Timetable(object):
         lesson = self.timetable[self.week][self.day][self.lesson_number]
 
         result = self.responses['week_days'][self.day] + ":\n"
-        result += lesson['lesson_number'] + ": " + lesson['lesson_name'] + " - " + \
-            (lesson['lesson_room'] if lesson['lesson_room']
-             else self.responses['unknown_room']) + "\n"
+        result += str(self.lesson_number) + ": " + lesson['discipline']['name'] + " - "
+        # Add rooms to response
+        result += self.generate_rooms_string(lesson['rooms'])
 
         # Show teacher
         if self.show_teacher:
-            if len(lesson['teachers']) > 0:
+            if lesson['teachers']:
                 for teacher in lesson['teachers']:
-                    result += "— " + teacher['teacher_full_name'] + "\n"
+                    result += "— " + teacher['name'] + "\n"
             else:
                 result += "— " + self.responses['no_teacher'] + "\n"
 
@@ -248,8 +244,8 @@ class Timetable(object):
 
         coordinates = {}
         for room in lesson['rooms']:
-            coordinates['longitude'] = float(room['room_longitude'])
-            coordinates['latitude'] = float(room['room_latitude'])
+            coordinates['longitude'] = float(room['building']['longitude'])
+            coordinates['latitude'] = float(room['building']['latitude'])
             reply(self.chat_id, location=coordinates)
 
     def today(self):
@@ -304,8 +300,8 @@ class Timetable(object):
             self.setteacher_id()
 
     def answer_teacher_query(self, is_teachertt=False):
-        raw_data = requests.get("http://api.rozklad.org.ua/v2/teachers/?search={\'query\': \'%s\'}" % self.teacher_query)
-        data = raw_data.json()
+        raw_response = requests.get(TIMETABLE_URL + "teachers/?search=%s}" % self.teacher_query)
+        data = raw_response.json()
 
         # Check teacher existance
         if data['statusCode'] != 200:
@@ -315,7 +311,7 @@ class Timetable(object):
         # List all teachers that satisfy requirements
         teachers = data['data']
         if len(teachers) == 1:
-            self.teacher_id = int(teachers[0]['teacher_id'])
+            self.teacher_id = int(teachers[0]['id'])
             if is_teachertt:
                 self.show_teacher_tt()
             else:
@@ -347,6 +343,23 @@ class Timetable(object):
         tt = TeacherTimetable(self.chat_id, '/tt', teacher_id=self.teacher_id)
         tt.tt()
 
+    def generate_rooms_string(self, rooms):
+        """
+        Generate string like "339-19, 302-18" from rooms array
+        """
+        result = ""
+        for room in rooms:
+            room_name = "%s-%s" % (room['name'], room['building']['name'])
+            result += room_name + ", "
+
+        # Scrutch. TODO: think, how to optimise
+        if result[-2] == ",":
+            result = result[:-2]
+
+        if not rooms:
+            result += self.responses['unknown_room']
+        result += "\n"
+
 
 class GroupTimetable(Timetable):
 
@@ -367,30 +380,16 @@ class GroupTimetable(Timetable):
                     raise StopExecution
 
             # Get group timetable
-            raw_data = requests.get("http://api.rozklad.org.ua/v2/groups/%i/timetable" % self.group_id)
-            if raw_data.json()['statusCode'] != 404:
-                self.timetable = raw_data.json()['data']['weeks']
-                self.timetable = self.prettify(self.timetable)
+            raw_response = requests.get(TIMETABLE_URL + "groups/%i/timetable.json" % self.group_id)
+            response = raw_response.json()
+            if response['statusCode'] != 404:
+                self.timetable = response['data']
+                self.timetable = utils.prettify(self.timetable)
             else:
                 reply(self.chat_id, msg=self.responses['no_timetable_for_group'])
                 self.is_wrong_parameter = True
         except StopExecution:
             pass
-
-    def prettify(self, timetable):
-        """
-        Reformat timetable dict:
-        From: self.timetable[str(week)]['days'][str(day)]['lessons'][str(lesson_number)]
-        To:   self.timetable[week][day][lesson_number]
-        """
-        result = {}
-        for week in timetable:
-            result[int(week)] = {}
-            for day in timetable[week]['days']:
-                result[int(week)][int(day)] = {}
-                for lesson in timetable[week]['days'][day]['lessons']:
-                    result[int(week)][int(day)][int(lesson['lesson_number'])] = lesson
-        return result
 
     def who(self):
         # Check lesson existance
@@ -405,7 +404,7 @@ class GroupTimetable(Timetable):
 
         result = ""
         for teacher in lesson['teachers']:
-            result += teacher['teacher_full_name'] + "\n"
+            result += teacher['full_name'] + "\n"
 
         reply(self.chat_id, msg=result)
 
@@ -438,11 +437,11 @@ class TeacherTimetable(Timetable):
                     self.teacher_id = chat.teacher_id
 
             # Get teacher timetable
-            raw_data = requests.get("http://api.rozklad.org.ua/v2/teachers/%i/lessons" % self.teacher_id)
-            data = raw_data.json()
-            if data['statusCode'] == 200:
-                self.timetable = data['data']
-                self.timetable = self.prettify(self.timetable)
+            raw_response = requests.get(TIMETABLE_URL + "teachers/%i/timetable.json" % self.teacher_id)
+            response = raw_response.json()
+            if response['statusCode'] == 200:
+                self.timetable = response['data']
+                self.timetable = utils.prettify(self.timetable)
             else:
                 if command not in ['/setgroup', '/setteacher']:
                     reply(self.chat_id, msg=self.responses['get_tt_error'])
@@ -451,25 +450,10 @@ class TeacherTimetable(Timetable):
         except StopExecution:
             pass
 
-    def prettify(self, timetable):
-        """
-        Reformat timetable from array to readable dict:
-        self.timetable[week][day][lesson_number]
-        """
-        result = {}
-
-        for week in range(1, 3):
-            result[week] = {}
-            for day in range(1, 7):
-                result[week][day] = {}
-
-        for lesson in timetable:
-            result[int(lesson['lesson_week'])]\
-                  [int(lesson['day_number'])]\
-                  [int(lesson['lesson_number'])] = lesson
-        return result
-
     def who(self):
+        """
+        /who command isn't allowed in teachers mode. So we overload it, to send error
+        """
         reply(self.chat_id, msg=self.responses['wrong_command_for_tm'])
 
 # Debug

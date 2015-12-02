@@ -7,7 +7,8 @@ import requests
 import miscellaneous.key
 from miscellaneous.arrays import days, pairs
 
-BotURL = "https://api.telegram.org/bot%s/" % miscellaneous.key.BOT_TOKEN
+BOT_URL = "https://api.telegram.org/bot%s/" % miscellaneous.key.BOT_TOKEN
+TIMETABLE_URL = "http://api.rozklad.hub.kpi.ua/"
 
 
 class StopExecution(Exception):
@@ -19,7 +20,7 @@ def reply(chat_id, msg=None, location=None, keyboard=None):
         reply_markup = {}
         if not keyboard:
             reply_markup['hide_keyboard'] = True
-            requests.post(BotURL + 'sendMessage', data={
+            requests.post(BOT_URL + 'sendMessage', data={
                 'chat_id': str(chat_id),
                 'text': msg.encode('utf-8'),
                 'reply_markup': json.dumps(reply_markup),
@@ -29,13 +30,13 @@ def reply(chat_id, msg=None, location=None, keyboard=None):
             reply_markup['resize_keyboard'] = True
             reply_markup['one_time_keyboard'] = True
 
-            requests.post(BotURL + 'sendMessage', data={
+            requests.post(BOT_URL + 'sendMessage', data={
                 'chat_id': str(chat_id),
                 'text': msg.encode('utf-8'),
                 'reply_markup': json.dumps(reply_markup),
             })
     elif location:
-        requests.post(BotURL + 'sendLocation', data={
+        requests.post(BOT_URL + 'sendLocation', data={
             'chat_id': str(chat_id),
             'latitude': location['latitude'],
             'longitude': location['longitude'],
@@ -103,3 +104,19 @@ def is_group_exists(group_id):
         return True
 
     return False
+
+
+def prettify(timetable):
+    """
+    Reformat timetable dict:
+    From: self.timetable[str(week)][str(day)][str(lesson_number)]
+    To:   self.timetable[week][day][lesson_number]
+    """
+    result = {}
+    for week in timetable:
+        result[int(week)] = {}
+        for day in timetable[week]:
+            result[int(week)][int(day)] = {}
+            for lesson in timetable[week][day]:
+                result[int(week)][int(day)][int(lesson)] = timetable[week][day][lesson]
+    return result

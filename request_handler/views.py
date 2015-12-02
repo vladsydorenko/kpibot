@@ -49,7 +49,7 @@ def index(request):
             return HttpResponse()
 
         # Statistics
-        track(miscellaneous.key.BOTAN_TOKEN, user_id, {get_group_name_by_id(chat.group_id): 1}, "Group") 
+        track(miscellaneous.key.BOTAN_TOKEN, user_id, {get_group_name_by_id(chat.group_id): 1}, "Group")
         track(miscellaneous.key.BOTAN_TOKEN, user_id, {}, command)
 
         # If command doesn't need timetable
