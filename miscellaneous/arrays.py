@@ -58,7 +58,7 @@ pairs = [
     datetime.datetime(now.year, now.month, now.day, 0, 1),
     datetime.datetime(now.year, now.month, now.day, 8, 30),
     datetime.datetime(now.year, now.month, now.day, 10, 5),
-    datetime.datetime(now.year, now.month, now.day, 12, 00),
+    datetime.datetime(now.year, now.month, now.day, 12, 0),
     datetime.datetime(now.year, now.month, now.day, 13, 55),
     datetime.datetime(now.year, now.month, now.day, 15, 50),
     datetime.datetime(now.year, now.month, now.day, 17, 45),

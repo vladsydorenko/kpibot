@@ -35,10 +35,7 @@ def index(request):
         return HttpResponse()
 
     # Set user language
-    if chat.language == "ru":
-        responses = ru
-    else:
-        responses = ua
+    responses = ru if chat.language == "ru" else ua
     # Make commands and parameters case insensitive
     message = message.lower()
 
@@ -81,37 +78,25 @@ def index(request):
             return HttpResponse()
 
         # If command require timetable
-        if chat.group_id == -1:
-            tt = TeacherTimetable(chat_id, message)
-        else:
-            tt = GroupTimetable(chat_id, message)
+        tt = TeacherTimetable(chat_id, message) if chat.group_id == -1 else GroupTimetable(chat_id, message)
 
         # Check wrong parameter and access error
         if tt.is_wrong_parameter:
             return HttpResponse()
 
         #Command processing
-        if command == "/setgroup":
-            tt.setgroup()
-        elif command == "/setteacher":
-            tt.setteacher()
-        elif command == "/tt":
-            tt.tt()
-        elif command == "/today":
-            tt.today()
-        elif command == "/tomorrow":
-            tt.tomorrow()
-        elif command == "/now":
-            tt.now()
-        elif command == "/next":
-            tt.next()
-        elif command == "/where":
-            tt.where()
-        elif command == "/who":
-            tt.who()
-        elif command == "/teacher":
-            tt.teachertt()
+        getattr(tt, command[1:])()
     except:
         pass
     finally:
         return HttpResponse()
+
+@csrf_exempt
+def test(request):
+    # try:
+    #     tt = GroupTimetable(111791142, "/setgroup іа32")
+    #     tt.setteacher()
+    # except Exception:
+    #     import traceback
+    #     reply(111791142, msg=traceback.format_exc())
+    return HttpResponse()

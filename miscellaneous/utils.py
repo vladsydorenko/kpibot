@@ -85,7 +85,7 @@ def is_cyrillic(s):
 
 def transliterate(text):
     tr_en_ua = str.maketrans("abcdefghijklmnopqrstuvwxyz",
-                             "абцдєфгхіжклмнопкрстуввхуз")
+                             "абцдефгхіжклмнопкрстуввхуз")
     if not is_cyrillic(text):
         return text.translate(tr_en_ua)
     return text

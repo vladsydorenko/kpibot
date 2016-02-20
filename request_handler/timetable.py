@@ -47,7 +47,7 @@ class Timetable(object):
 
         # Set current time
         if command != '/tt':
-            self.week = datetime.date.today().isocalendar()[1] % 2 + 1
+            self.week = 2 - datetime.date.today().isocalendar()[1] % 2
             self.day = datetime.date.today().weekday() + 1
             self.lesson_number = utils.get_current_lesson_number()
 
@@ -58,19 +58,20 @@ class Timetable(object):
         if len(message.split()) > 1:
             for token in message.split()[1:]:
                 self.parameters.append(token)
-                if re.match("[A-zА-я]{2,4}[-]{0,1}[A-zА-я]{0,2}[0-9]{2,3}[A-zА-я]?(\(?[A-zА-я]*\)?)", token):
+                if re.match("[A-zА-яіє]{2,4}-?[A-zА-яіє]{0,2}[0-9]{2,3}[A-zА-яіє]?\(?[A-zА-яіє]*\)?", token):
                     token = transliterate(token)
                     group_name = token
                     if '-' not in token:
-                        group_name = token[:2] + '-' + token[2:]
+                        number_position = re.search("\d", token).start()
+                        group_name = token[:number_position] + '-' + token[number_position:]
 
                     self.group_id = utils.get_group_id_by_name(group_name)
                     if self.group_id == -2:
                         self.group_name = group_name
                         self.parameters.pop()
-                elif re.match("[w][1|2]", token):
+                elif re.match("[w][1|2]{1,1}", token):
                     self.week = int(token[1])
-                elif re.match("[w]", token):
+                elif re.match("[w]{1,1}", token):
                     self.week = datetime.date.today().isocalendar()[1] % 2 + 1
                 elif utils.get_week_day(token):
                     self.day = utils.get_week_day(token)
@@ -80,7 +81,7 @@ class Timetable(object):
                     self.show_teacher = True
                 elif re.match("[0-9]+", token):
                     self.teacher_id = int(token)
-                elif re.match("[A-zА-я]+", token):
+                elif re.match("[A-zА-яіє]+", token):
                     self.teacher_query += token if not self.teacher_query else (" " + token)
                 else:
                     reply(self.chat_id, msg=self.responses['wrong_parameter'])
@@ -100,7 +101,7 @@ class Timetable(object):
         elif command == "/setgroup" and self.group_id == 0:
             reply(self.chat_id, msg=self.responses['no_required_parameter'])
         elif self.group_id == -2:
-            query = Group.objects.all().filter(group_name__icontains=self.group_name + "(")
+            query = Group.objects.filter(group_name__icontains=self.group_name + "(")
             keyboard = []
             for item in query:
                 row = []
@@ -177,10 +178,9 @@ class Timetable(object):
         # Generating message body
         lesson = self.timetable[self.week][self.day][self.lesson_number]
 
-        result = self.responses['week_days'][self.day] + ":\n"
-        result += str(self.lesson_number) + ": " + lesson['discipline']['name'] + " - "
-        # Add rooms to response
-        result += self.generate_rooms_string(lesson['rooms'])
+        result = self.responses['week_days'][self.day] + ":\n" + \
+                 str(self.lesson_number) + ": " + lesson['discipline']['name'] + " - " + \
+                 self.generate_rooms_string(lesson['rooms'])
 
         # Show teacher
         if self.show_teacher:
@@ -410,7 +410,7 @@ class GroupTimetable(Timetable):
 
         reply(self.chat_id, msg=result)
 
-    def teachertt(self):
+    def teacher(self):
         if self.teacher_query:
             self.answer_teacher_query(is_teachertt=True)
         else:
@@ -457,18 +457,3 @@ class TeacherTimetable(Timetable):
         /who command isn't allowed in teachers mode. So we overload it, to send error
         """
         reply(self.chat_id, msg=self.responses['wrong_command_for_tm'])
-
-# Debug
-from django.views.decorators.csrf import csrf_exempt
-
-
-@csrf_exempt
-def test(request):
-    try:
-        tt = GroupTimetable(111791142, "/setteacher ром")
-        tt.setteacher()
-    except Exception:
-        import traceback
-        reply(111791142, msg=traceback.format_exc())
-    from django.http import HttpResponse
-    return HttpResponse()
