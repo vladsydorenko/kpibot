@@ -93,10 +93,10 @@ def index(request):
 
 @csrf_exempt
 def test(request):
-    # try:
-    #     tt = GroupTimetable(111791142, "/setgroup іа32")
-    #     tt.setteacher()
-    # except Exception:
-    #     import traceback
-    #     reply(111791142, msg=traceback.format_exc())
+    try:
+        tt = GroupTimetable(111791142, "/setgroup іа32")
+        tt.setgroup()
+    except Exception:
+        import traceback
+        reply(111791142, msg=traceback.format_exc())
     return HttpResponse()
