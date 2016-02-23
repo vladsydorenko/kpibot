@@ -55,16 +55,9 @@ def index(request):
         elif command == "/authors":
             reply(chat_id, msg=responses['authors'])
         elif command == "/week":
-            reply(chat_id, msg=responses['week'].format(datetime.date.today().isocalendar()[1] % 2 + 1))
+            reply(chat_id, msg=responses['week'].format(2 - datetime.date.today().isocalendar()[1] % 2))
         elif command == "/time":
             reply(chat_id, msg=time)
-        elif command == "/remind":
-            chat.remind = not chat.remind
-            chat.save()
-            if chat.remind:
-                reply(chat_id, responses['reminder_on'])
-            else:
-                reply(chat_id, responses['reminder_off'])
         elif command == "/changelang":
             if chat.language == "ru":
                 chat.language = "ua"
@@ -93,10 +86,11 @@ def index(request):
 
 @csrf_exempt
 def test(request):
-    try:
-        tt = GroupTimetable(111791142, "/setgroup іа32")
-        tt.setgroup()
-    except Exception:
-        import traceback
-        reply(111791142, msg=traceback.format_exc())
+    #try:
+    #    tt = GroupTimetable(111791142, "/who")
+    #    tt.who()
+    #except Exception:
+    #    import traceback
+    #    reply(111791142, msg=traceback.format_exc())
+    #finally:
     return HttpResponse()

@@ -72,15 +72,19 @@ class Timetable(object):
                 elif re.match("[w][1|2]{1,1}", token):
                     self.week = int(token[1])
                 elif re.match("[w]{1,1}", token):
-                    self.week = datetime.date.today().isocalendar()[1] % 2 + 1
+                    self.week = 2 - datetime.date.today().isocalendar()[1] % 2
                 elif utils.get_week_day(token):
                     self.day = utils.get_week_day(token)
-                elif re.match("[1-6]{1,1}", token):
-                    self.lesson_number = int(token)
-                elif re.match("[t]", token):
+                #elif re.match("[1-6]{1,1}", token):
+                #    self.lesson_number = int(token)
+                elif re.match("[t]{1,1}", token):
                     self.show_teacher = True
                 elif re.match("[0-9]+", token):
-                    self.teacher_id = int(token)
+                    #self.teacher_id = int(token)
+                    if int(token) < 7:
+                        self.lesson_number = int(token)
+                    else:
+                        self.teacher_id = int(token)
                 elif re.match("[A-zА-яіє]+", token):
                     self.teacher_query += token if not self.teacher_query else (" " + token)
                 else:
@@ -90,7 +94,7 @@ class Timetable(object):
     def __check_parameters(self, command, parameters_number):
         if parameters_number > commands[command]:
             reply(self.chat_id, self.responses['wrong_parameters_number'])
-        elif command != "/tt" and (self.week != 0 or self.day != 0 or self.lesson_number != 0):
+        elif command != "/tt" and (self.week != 0 or self.day != 0):# or self.lesson_number != 0):
             reply(self.chat_id, msg=self.responses['wrong_parameter'])
         elif (command != "/setteacher" and command != "/teacher") and (self.teacher_query != "" or self.teacher_id != 0):
             reply(self.chat_id, msg=self.responses['wrong_parameter'])
@@ -105,8 +109,7 @@ class Timetable(object):
             keyboard = []
             for item in query:
                 row = []
-                # TODO: Hotfixed ")". Check.
-                row.append("{0} {1}) ".format(command, item.group_name) + " ".join(self.parameters))
+                row.append("{0} {1} ".format(command, item.group_name) + " ".join(self.parameters))
                 keyboard.append(row)
             reply(self.chat_id, msg=self.responses['same_group'], keyboard=keyboard)
 
@@ -116,7 +119,7 @@ class Timetable(object):
         else:
             self.is_wrong_parameter = False
 
-    def __check_day(self):
+    def _check_day(self):
         # Custom reply for sunday
         if self.day == 7:
             reply(self.chat_id, self.responses['sunday'])
@@ -139,7 +142,7 @@ class Timetable(object):
         """
         Shows timetable for whole day
         """
-        if not self.__check_day():
+        if not self._check_day():
             return
 
         # Add week day as title
@@ -167,7 +170,7 @@ class Timetable(object):
         """
         Shows only one lesson
         """
-        if not self.__check_day():
+        if not self._check_day():
             return
 
         # Check lesson existance
@@ -227,7 +230,7 @@ class Timetable(object):
         self.__show_lesson()
 
     def where(self):
-        if not self.__check_day():
+        if not self._check_day():
             return
 
         # Check lesson existance
@@ -395,6 +398,7 @@ class GroupTimetable(Timetable):
 
     def who(self):
         # Check lesson existance
+        self._check_day()
         if self.lesson_number not in self.timetable[self.week][self.day]:
             reply(self.chat_id, msg=self.responses['no_lesson'])
 
