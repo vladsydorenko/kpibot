@@ -1,15 +1,16 @@
-from request_handler.models import Chat, Group
-# System libs
 import re
 import requests
 import datetime
 
-# Own modules
+from django.conf import settings
+
 import miscellaneous.utils as utils
-from miscellaneous.utils import StopExecution, TIMETABLE_URL
-from miscellaneous.lang import ru, ua
-from miscellaneous.utils import reply, get_current_lesson_number, transliterate
-from miscellaneous.arrays import pairs, commands, types
+from miscellaneous.utils import StopExecution
+from miscellaneous.lang import localization
+from miscellaneous.utils import reply, get_current_lesson_number, transliterate, get_current_week
+from miscellaneous.arrays import commands, types
+
+from request_handler.models import Chat, Group
 
 
 class Timetable(object):
@@ -28,30 +29,27 @@ class Timetable(object):
         self.is_wrong_parameter = True
 
         self.timetable = {}
-        self.responses = {}
+        self.responces = {}
 
         self.chat_id = chat_id
 
         # Set user language
         chat = Chat.objects.get(pk=chat_id)
-        if chat.language == "ru":
-            self.responses = ru
-        else:
-            self.responses = ua
+        self.responces = localization[chat.language]
 
         # Read parameters from message
         command = message.split()[0].split('@')[0]
         parameters_number = len(message.split()) - 1
-        self.__read_parameters(message)
-        self.__check_parameters(command, parameters_number)
+        self._read_parameters(message)
+        self._check_parameters(command, parameters_number)
 
         # Set current time
         if command != '/tt':
-            self.week = 2 - datetime.date.today().isocalendar()[1] % 2
+            self.week = get_current_week()
             self.day = datetime.date.today().weekday() + 1
             self.lesson_number = utils.get_current_lesson_number()
 
-    def __read_parameters(self, message):
+    def _read_parameters(self, message):
         """
         Transform command parameters to class fields
         """
@@ -59,60 +57,54 @@ class Timetable(object):
             for token in message.split()[1:]:
                 self.parameters.append(token)
                 if re.match("[A-zА-яіє]{2,4}-?[A-zА-яіє]{0,2}[0-9]{2,3}[A-zА-яіє]?\(?[A-zА-яіє]*\)?", token):
-                    token = transliterate(token)
-                    group_name = token
+                    group_name = transliterate(token)
                     if '-' not in token:
                         number_position = re.search("\d", token).start()
-                        group_name = token[:number_position] + '-' + token[number_position:]
+                        group_name = group_name[:number_position] + '-' + group_name[number_position:]
 
                     self.group_id = utils.get_group_id_by_name(group_name)
                     if self.group_id == -2:
                         self.group_name = group_name
                         self.parameters.pop()
-                elif re.match("[w][1|2]{1,1}", token):
+                elif re.match("[w]{1,1}[1|2]{1,1}", token):
                     self.week = int(token[1])
                 elif re.match("[w]{1,1}", token):
-                    self.week = 2 - datetime.date.today().isocalendar()[1] % 2
+                    self.week = get_current_week()
                 elif utils.get_week_day(token):
                     self.day = utils.get_week_day(token)
-                #elif re.match("[1-6]{1,1}", token):
-                #    self.lesson_number = int(token)
                 elif re.match("[t]{1,1}", token):
                     self.show_teacher = True
                 elif re.match("[0-9]+", token):
-                    #self.teacher_id = int(token)
                     if int(token) < 7:
                         self.lesson_number = int(token)
                     else:
                         self.teacher_id = int(token)
                 elif re.match("[A-zА-яіє]+", token):
-                    self.teacher_query += token if not self.teacher_query else (" " + token)
+                    self.teacher_query += token if not self.teacher_query else " " + token
                 else:
-                    reply(self.chat_id, msg=self.responses['wrong_parameter'])
+                    reply(self.chat_id, msg=self.responces['wrong_parameter'])
                     self.is_wrong_parameter = True
 
-    def __check_parameters(self, command, parameters_number):
+    def _check_parameters(self, command, parameters_number):
         if parameters_number > commands[command]:
-            reply(self.chat_id, self.responses['wrong_parameters_number'])
-        elif command != "/tt" and (self.week != 0 or self.day != 0):# or self.lesson_number != 0):
-            reply(self.chat_id, msg=self.responses['wrong_parameter'])
-        elif (command != "/setteacher" and command != "/teacher") and (self.teacher_query != "" or self.teacher_id != 0):
-            reply(self.chat_id, msg=self.responses['wrong_parameter'])
-        elif (command == "/setteacher" or command == "/teacher") and self.teacher_id == 0 and self.teacher_query == "":
-            reply(self.chat_id, msg=self.responses['no_required_parameter'])
+            reply(self.chat_id, self.responces['wrong_parameters_number'])
+        elif command != "/tt" and (self.week != 0 or self.day != 0):
+            reply(self.chat_id, msg=self.responces['wrong_parameter'])
+        elif (command != "/setteacher" and command != "/teacher") and (self.teacher_query or self.teacher_id):
+            reply(self.chat_id, msg=self.responces['wrong_parameter'])
+        elif (command == "/setteacher" or command == "/teacher") and not self.teacher_id and not self.teacher_query:
+            reply(self.chat_id, msg=self.responces['no_required_parameter'])
         elif command == "/setgroup" and self.group_id == -1:
-            reply(self.chat_id, msg=self.responses['unknown_group'])
+            reply(self.chat_id, msg=self.responces['unknown_group'])
         elif command == "/setgroup" and self.group_id == 0:
-            reply(self.chat_id, msg=self.responses['no_required_parameter'])
+            reply(self.chat_id, msg=self.responces['no_required_parameter'])
         elif self.group_id == -2:
             query = Group.objects.filter(group_name__icontains=self.group_name + "(")
             keyboard = []
             for item in query:
-                row = []
-                row.append("{0} {1} ".format(command, item.group_name) + " ".join(self.parameters))
+                row = ["{0} {1} ".format(command, item.group_name) + " ".join(self.parameters)]
                 keyboard.append(row)
-            reply(self.chat_id, msg=self.responses['same_group'], keyboard=keyboard)
-
+            reply(self.chat_id, msg=self.responces['same_group'], keyboard=keyboard)
         elif command == "/tt" and self.day == 0:
             self.show_full_week = True
             self.is_wrong_parameter = False
@@ -122,23 +114,24 @@ class Timetable(object):
     def _check_day(self):
         # Custom reply for sunday
         if self.day == 7:
-            reply(self.chat_id, self.responses['sunday'])
+            reply(self.chat_id, self.responces['sunday'])
             return False
 
         # Check day existance
-        if self.week not in self.timetable or\
-           self.day not in self.timetable[self.week] or\
-           not self.timetable[self.week][self.day]:
+        try:
+            day = self.timetable[self.week][self.day]
+            if day == {}:
+                if not self.show_full_week:
+                    reply(self.chat_id, msg=self.responces['no_lessons_for_this_day'])
+                return False
+        except KeyError:
             if not self.show_full_week:
-                reply(self.chat_id, msg=self.responses['get_tt_error'])
+                reply(self.chat_id, msg=self.responces['get_tt_error'])
             return False
-        elif self.day not in self.timetable[self.week] or self.timetable[self.week][self.day] == {}:
-            if not self.show_full_week:
-                reply(self.chat_id, msg=self.responses['get_tt_error'])
-            return False
+
         return True
 
-    def __show_day(self):
+    def _show_day(self):
         """
         Shows timetable for whole day
         """
@@ -146,15 +139,15 @@ class Timetable(object):
             return
 
         # Add week day as title
-        result = self.responses['week_days'][self.day] + "\n"
+        result = self.responces['week_days'][self.day] + "\n"
         # Generate message body
         for lesson_number in self.timetable[self.week][self.day]:
             lesson = self.timetable[self.week][self.day][lesson_number]
             result += str(lesson_number) + ": " + lesson['discipline']['name'] + \
-                (" (" + types[lesson['type']] + ")" if lesson['type'] else "") + " - "
+                (" (%s)" % types[lesson['type']] if lesson['type'] else "") + " - "
 
             # Add rooms to response
-            result += self.generate_rooms_string(lesson['rooms'])
+            result += utils.generate_rooms_string(lesson['rooms'], self.responces)
 
             # If "T" parameter
             if self.show_teacher:
@@ -162,28 +155,27 @@ class Timetable(object):
                     for teacher in lesson['teachers']:
                         result += "— " + teacher['name'] + "\n"
                 else:
-                    result += "— " + self.responses['no_teacher'] + "\n"
+                    result += "— " + self.responces['no_teacher'] + "\n"
 
         reply(self.chat_id, msg=result)
 
-    def __show_lesson(self, show_time_to_end=False):
+    def _show_lesson(self, show_time_to_end=False):
         """
         Shows only one lesson
         """
         if not self._check_day():
             return
 
-        # Check lesson existance
-        if self.lesson_number not in self.timetable[self.week][self.day]:
-            reply(self.chat_id, msg=self.responses['no_lesson'])
+        # Generating message body
+        try:
+            lesson = self.timetable[self.week][self.day][self.lesson_number]
+        except KeyError:
+            reply(self.chat_id, msg=self.responces['no_lesson'])
             return
 
-        # Generating message body
-        lesson = self.timetable[self.week][self.day][self.lesson_number]
-
-        result = self.responses['week_days'][self.day] + ":\n" + \
-                 str(self.lesson_number) + ": " + lesson['discipline']['name'] + " - " + \
-                 self.generate_rooms_string(lesson['rooms'])
+        result = self.responces['week_days'][self.day] + ":\n" + \
+            str(self.lesson_number) + ": " + lesson['discipline']['name'] + " - " + \
+            utils.generate_rooms_string(lesson['rooms'], self.responces)
 
         # Show teacher
         if self.show_teacher:
@@ -191,21 +183,20 @@ class Timetable(object):
                 for teacher in lesson['teachers']:
                     result += "— " + teacher['name'] + "\n"
             else:
-                result += "— " + self.responses['no_teacher'] + "\n"
+                result += "— " + self.responces['no_teacher'] + "\n"
 
         # Add showing time to the end or lesson for /now command
         if show_time_to_end:
-            now = datetime.datetime.now()
-            time_to_end = str(int((pairs[self.lesson_number + 1] - now).total_seconds() // 60))
-            reply(self.chat_id, msg=result + self.responses['minutes_left'].format(time_to_end))
-        else:
-            reply(self.chat_id, msg=result)
+            time_to_end = utils.get_time_to_lesson_end(self.lesson_number)
+            result += self.responces['minutes_left'].format(time_to_end)
+
+        reply(self.chat_id, msg=result)
 
     def now_has_lesson(self):
         return get_current_lesson_number() in self.timetable[self.week][self.day]
 
     def now(self):
-        self.__show_lesson(show_time_to_end=True)
+        self._show_lesson(show_time_to_end=True)
 
     def next(self):
         self.lesson_number += 1
@@ -227,7 +218,7 @@ class Timetable(object):
 
         while self.lesson_number not in self.timetable[self.week][self.day]:
             self.lesson_number += 1
-        self.__show_lesson()
+        self._show_lesson()
 
     def where(self):
         if not self._check_day():
@@ -235,14 +226,14 @@ class Timetable(object):
 
         # Check lesson existance
         if self.lesson_number not in self.timetable[self.week][self.day]:
-            reply(self.chat_id, msg=self.responses['no_lesson'])
+            reply(self.chat_id, msg=self.responces['no_lesson'])
             return
 
         lesson = self.timetable[self.week][self.day][self.lesson_number]
 
         # Check if room set in timetable
         if not lesson['rooms']:
-            reply(self.chat_id, msg=self.responses['no_room'])
+            reply(self.chat_id, msg=self.responces['no_room'])
             return
 
         coordinates = {}
@@ -250,9 +241,10 @@ class Timetable(object):
             coordinates['longitude'] = float(room['building']['longitude'])
             coordinates['latitude'] = float(room['building']['latitude'])
             reply(self.chat_id, location=coordinates)
+        reply(self.chat_id, result=utils.generate_rooms_string(lesson['rooms'], self.responces))
 
     def today(self):
-        self.__show_day()
+        self._show_day()
 
     def tomorrow(self):
         if self.day == 7:
@@ -261,40 +253,40 @@ class Timetable(object):
         else:
             self.day += 1
 
-        self.__show_day()
+        self._show_day()
 
     def tt(self):
         # To specify lesson number
         if self.lesson_number != 0:
             if self.day != 0 and self.week != 0:
-                self.__show_lesson()
+                self._show_lesson()
                 return
             else:
-                reply(self.chat_id, msg=self.responses['no_week_or_day'])
+                reply(self.chat_id, msg=self.responces['no_week_or_day'])
                 return
 
         week_range = [self.week]
         if self.week == 0:
             if self.day != 0:
-                reply(self.chat_id, msg=self.responses['no_week'])
+                reply(self.chat_id, msg=self.responces['no_week'])
                 return
-            week_range = list(range(1, 3))
+            week_range = [1, 2]
 
         for self.week in week_range:
-            reply(self.chat_id, msg="Week #" + str(self.week) + ":")
+            reply(self.chat_id, msg="Week #%i:" % self.week)
             if self.day == 0:
                 for self.day in range(1, 7):
-                    self.__show_day()
+                    self._show_day()
                 self.day = 0
             else:
-                self.__show_day()
+                self._show_day()
 
     def setgroup(self):
         c = Chat(chat_id=self.chat_id,
                  group_id=self.group_id,
                  teacher_id=0)
         c.save()
-        reply(self.chat_id, msg=self.responses['setgroup_success'])
+        reply(self.chat_id, msg=self.responces['setgroup_success'])
 
     def setteacher(self):
         if self.teacher_query:
@@ -303,11 +295,11 @@ class Timetable(object):
             self.setteacher_id()
 
     def answer_teacher_query(self, is_teachertt=False):
-        raw_response = requests.get(TIMETABLE_URL + "teachers/?search=%s" % self.teacher_query)
+        raw_response = requests.get(settings.TIMETABLE_URL + "teachers/?search=%s" % self.teacher_query)
 
         # Check teacher existance
         if raw_response.status_code != 200:
-            reply(self.chat_id, self.responses['unknown_teacher'])
+            reply(self.chat_id, self.responces['unknown_teacher'])
             return
 
         # List all teachers that satisfy requirements
@@ -322,9 +314,9 @@ class Timetable(object):
         else:
             keyboard = []
             if is_teachertt:
-                result = self.responses['teacher_tt']
+                result = self.responces['teacher_tt']
             else:
-                result = self.responses['setteacher_filter'].format(self.teacher_query)
+                result = self.responces['setteacher_filter'].format(self.teacher_query)
             for teacher in teachers:
                 row = []
                 if is_teachertt:
@@ -340,30 +332,11 @@ class Timetable(object):
                  group_id=-1,
                  teacher_id=self.teacher_id)
         c.save()
-        reply(self.chat_id, msg=self.responses['setteacher_success'])
+        reply(self.chat_id, msg=self.responces['setteacher_success'])
 
     def show_teacher_tt(self):
         tt = TeacherTimetable(self.chat_id, '/tt', teacher_id=self.teacher_id)
         tt.tt()
-
-    def generate_rooms_string(self, rooms):
-        """
-        Generate string like "339-19, 302-18" from rooms array
-        """
-        result = ""
-        for room in rooms:
-            room_name = "%s-%s" % (room['name'], room['building']['name'])
-            result += room_name + ", "
-
-        if not rooms:
-            result += self.responses['unknown_room']
-
-        # Scrutch. TODO: think, how to optimise
-        if result[-2] == ",":
-            result = result[:-2]
-
-        result += "\n"
-        return result
 
 
 class GroupTimetable(Timetable):
@@ -380,18 +353,17 @@ class GroupTimetable(Timetable):
                 self.group_id = chat.group_id
 
                 if self.group_id == 0:
-                    reply(self.chat_id, msg=self.responses['empty_group'])
+                    reply(self.chat_id, msg=self.responces['empty_group'])
                     self.is_wrong_parameter = True
                     raise StopExecution
 
             # Get group timetable
-            raw_response = requests.get(TIMETABLE_URL + "groups/%i/timetable.json" % self.group_id)
+            raw_response = requests.get(settings.TIMETABLE_URL + "groups/%i/timetable.json" % self.group_id)
             if raw_response.status_code == 200:
                 response = raw_response.json()
-                self.timetable = response['data']
-                self.timetable = utils.prettify(self.timetable)
+                self.timetable = utils.prettify(response['data'])
             else:
-                reply(self.chat_id, msg=self.responses['no_timetable_for_group'])
+                reply(self.chat_id, msg=self.responces['no_timetable_for_group'])
                 self.is_wrong_parameter = True
         except StopExecution:
             pass
@@ -400,13 +372,13 @@ class GroupTimetable(Timetable):
         # Check lesson existance
         self._check_day()
         if self.lesson_number not in self.timetable[self.week][self.day]:
-            reply(self.chat_id, msg=self.responses['no_lesson'])
+            reply(self.chat_id, msg=self.responces['no_lesson'])
 
         lesson = self.timetable[self.week][self.day][self.lesson_number]
 
         # Check if teachers set in timetable
         if not lesson['teachers']:
-            reply(self.chat_id, msg=self.responses['no_teacher'])
+            reply(self.chat_id, msg=self.responces['no_teacher'])
 
         result = ""
         for teacher in lesson['teachers']:
@@ -434,7 +406,7 @@ class TeacherTimetable(Timetable):
             else:
                 command = message.split()[0].split('@')[0]
                 if self.show_teacher or (self.group_id != 0 and command != "/setgroup"):
-                    reply(self.chat_id, msg=self.responses['wrong_parameter_for_teacher'])
+                    reply(self.chat_id, msg=self.responces['wrong_parameter_for_teacher'])
                     self.is_wrong_parameter = True
                     raise StopExecution
 
@@ -443,14 +415,14 @@ class TeacherTimetable(Timetable):
                     self.teacher_id = chat.teacher_id
 
             # Get teacher timetable
-            raw_response = requests.get(TIMETABLE_URL + "teachers/%i/timetable.json" % self.teacher_id)
+            raw_response = requests.get(settings.TIMETABLE_URL + "teachers/%i/timetable.json" % self.teacher_id)
             if raw_response.status_code == 200:
                 response = raw_response.json()
                 self.timetable = response['data']
                 self.timetable = utils.prettify(self.timetable)
             else:
                 if command not in ['/setgroup', '/setteacher']:
-                    reply(self.chat_id, msg=self.responses['get_tt_error'])
+                    reply(self.chat_id, msg=self.responces['get_tt_error'])
                     self.is_wrong_parameter = True
 
         except StopExecution:
@@ -460,4 +432,4 @@ class TeacherTimetable(Timetable):
         """
         /who command isn't allowed in teachers mode. So we overload it, to send error
         """
-        reply(self.chat_id, msg=self.responses['wrong_command_for_tm'])
+        reply(self.chat_id, msg=self.responces['wrong_command_for_tm'])

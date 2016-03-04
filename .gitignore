@@ -59,7 +59,7 @@ target/
 logs/
 db.sqlite3
 key.py
-settings.py
 *.rdb
 *.db
 touchme
+*_secure.py

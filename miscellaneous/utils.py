@@ -1,14 +1,12 @@
-from django.template.defaultfilters import slugify
-
 import json
 import datetime
 import requests
 
-import miscellaneous.key
-from miscellaneous.arrays import days, pairs
+from django.template.defaultfilters import slugify
+from django.http import HttpResponse
+from django.conf import settings
 
-BOT_URL = "https://api.telegram.org/bot%s/" % miscellaneous.key.BOT_TOKEN
-TIMETABLE_URL = "http://api.rozklad.hub.kpi.ua/"
+from miscellaneous.arrays import days
 
 
 class StopExecution(Exception):
@@ -20,23 +18,18 @@ def reply(chat_id, msg=None, location=None, keyboard=None):
         reply_markup = {}
         if not keyboard:
             reply_markup['hide_keyboard'] = True
-            requests.post(BOT_URL + 'sendMessage', data={
-                'chat_id': str(chat_id),
-                'text': msg.encode('utf-8'),
-                'reply_markup': json.dumps(reply_markup),
-            })
         else:
             reply_markup['keyboard'] = keyboard
             reply_markup['resize_keyboard'] = True
             reply_markup['one_time_keyboard'] = True
 
-            requests.post(BOT_URL + 'sendMessage', data={
-                'chat_id': str(chat_id),
-                'text': msg.encode('utf-8'),
-                'reply_markup': json.dumps(reply_markup),
-            })
+        requests.post(settings.BOT_URL + 'sendMessage', data={
+            'chat_id': str(chat_id),
+            'text': msg.encode('utf-8'),
+            'reply_markup': json.dumps(reply_markup),
+        })
     elif location:
-        requests.post(BOT_URL + 'sendLocation', data={
+        requests.post(settings.BOT_URL + 'sendLocation', data={
             'chat_id': str(chat_id),
             'latitude': location['latitude'],
             'longitude': location['longitude'],
@@ -47,8 +40,8 @@ def get_group_id_by_name(group_name):
     from request_handler.models import Group
     try:
         # Check same groups (need specialization)
-        query = Group.objects.all().filter(group_name__contains=group_name + "(")
-        if len(query) != 0:
+        query = Group.objects.filter(group_name__contains=group_name + "(")
+        if query.exists():
             return -2
 
         group = Group.objects.get(group_name=group_name)
@@ -66,17 +59,33 @@ def get_group_name_by_id(group_id):
         group = Group.objects.get(group_id=group_id)
         return group.group_name
     except Group.DoesNotExist:
-        return False
+        return None
+
+
+def get_pairs():
+    now = datetime.datetime.now()
+    return [
+        datetime.datetime(now.year, now.month, now.day, 0, 1),
+        datetime.datetime(now.year, now.month, now.day, 8, 30),
+        datetime.datetime(now.year, now.month, now.day, 10, 5),
+        datetime.datetime(now.year, now.month, now.day, 12, 0),
+        datetime.datetime(now.year, now.month, now.day, 13, 55),
+        datetime.datetime(now.year, now.month, now.day, 15, 50),
+        datetime.datetime(now.year, now.month, now.day, 17, 45),
+        datetime.datetime(now.year, now.month, now.day, 23, 59)]
 
 
 def get_current_lesson_number():
     now = datetime.datetime.now()
-    cur_lesson = 0
+    pairs = get_pairs()
     for i in range(len(pairs) - 1):
         if now > pairs[i] and now < pairs[i + 1]:
-            cur_lesson = i
+            return i
 
-    return cur_lesson
+
+def get_time_to_lesson_end(lesson_number):
+    now = datetime.datetime.now()
+    return str(int((get_pairs()[lesson_number + 1] - now).total_seconds() // 60))
 
 
 def is_cyrillic(s):
@@ -100,10 +109,7 @@ def get_week_day(token):
 
 def is_group_exists(group_id):
     raw_data = requests.get("http://api.rozklad.org.ua/v2/groups/%s" % group_id)
-    if raw_data.json()['statusCode'] == 200:
-        return True
-
-    return False
+    return raw_data.json()['statusCode'] == 200
 
 
 def prettify(timetable):
@@ -120,3 +126,34 @@ def prettify(timetable):
             for lesson in timetable[week][day]:
                 result[int(week)][int(day)][int(lesson)] = timetable[week][day][lesson]
     return result
+
+
+def get_current_week():
+    return 2 - datetime.date.today().isocalendar()[1] % 2
+
+
+def generate_rooms_string(rooms, responces):
+    """
+    Generate string like "339-19, 302-18" from rooms array
+    """
+    if not rooms:
+        return responces['unknown_room'] + "\n"
+
+    result = []
+    for room in rooms:
+        result.append("%s-%s" % (room['name'], room['building']['name']))
+
+    return result.join(', ') + "\n"
+
+
+def log(func):
+    def wrapper(request):
+        try:
+            func(request)
+        except:
+            import traceback
+            reply(settings.LOG_CHAT_ID, msg=traceback.format_exc())
+            reply(settings.LOG_CHAT_ID, msg=request.body)
+        finally:
+            return HttpResponse()
+    return func
