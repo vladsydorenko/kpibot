@@ -32,6 +32,9 @@ def index(request):
     except Chat.DoesNotExist:
         chat = Chat(chat_id=chat_id)
         chat.save()
+    except KeyError:
+        message = data['callbackquery']['data']
+        upd_message_id = data['callbackquery']['message']['message_id']
 
     # Set user language
     responses = localization[chat.language]
@@ -71,10 +74,7 @@ def index(request):
     if tt.is_wrong_parameter:
         return
 
+    if command == "/update":
+        tt.update(upd_message_id)
     # Command processing
     getattr(tt, command[1:])()
-
-
-@csrf_exempt
-def test(request):
-    return HttpResponse()

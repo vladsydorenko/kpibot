@@ -131,7 +131,7 @@ class Timetable(object):
 
         return True
 
-    def _show_day(self, use_inline=False):
+    def _show_day(self, dont_send=False):
         """
         Shows timetable for whole day
         """
@@ -139,15 +139,14 @@ class Timetable(object):
             return
 
         # Add week day as title
-        result = "*{}*\n_{}_\n".format(self.responses['week'].format(get_current_week()),
-                                       self.responses['week_days'][self.day])
+        result = "_{}_\n".format(self.responses['week'].format(get_current_week()))
         # Generate message body
         for lesson_number in self.timetable[self.week][self.day]:
             lesson = self.timetable[self.week][self.day][lesson_number]
             result += "*{}*: {}{} - {}".format(lesson_number,
-                                                 lesson['discipline']['name'],
-                                                 " (%s)" % types[lesson['type']] if lesson['type'] else "",
-                                                 utils.generate_rooms_string(lesson['rooms'], self.responses))
+                                               lesson['discipline']['name'],
+                                               " (%s)" % types[lesson['type']] if lesson['type'] else "",
+                                               utils.generate_rooms_string(lesson['rooms'], self.responses))
             # If "T" parameter has been passed
             if self.show_teacher:
                 if lesson['teachers']:
@@ -156,29 +155,10 @@ class Timetable(object):
                 else:
                     result += "— " + self.responses['no_teacher'] + "\n"
 
-        if use_inline:
-            inline_keyboard = []
-            if self.day == 6:
-                next_day = 1
-                next_week = 3 - self.week
-            else:
-                next_day = self.day + 1
-                next_week = self.week
-            next_data = "/tt w{} {}".format(next_week, days[next_day][0])
+        if dont_send:
+            return result
 
-            if self.day == 1:
-                previous_day = 6
-                previous_week = 3 - self.week
-            else:
-                previous_day = self.day - 1
-                previous_week = self.week
-            previous_data = "/tt w{} {}".format(previous_week, days[previous_day][0])
-            row = [{'text': "<<", 'callback_data': previous_data},
-                   {'text': ">>", 'callback_data': next_data}]
-            inline_keyboard.append(row)
-            reply(self.chat_id, msg=result, inline_keyboard=inline_keyboard)
-        else:
-            reply(self.chat_id, msg=result)
+        reply(self.chat_id, msg=result)
 
     def _show_lesson(self, show_time_to_end=False):
         """
@@ -212,9 +192,6 @@ class Timetable(object):
             result += self.responses['minutes_left'].format(time_to_end)
 
         reply(self.chat_id, msg=result)
-
-    def now_has_lesson(self):
-        return get_current_lesson_number() in self.timetable[self.week][self.day]
 
     def now(self):
         self._show_lesson(show_time_to_end=True)
@@ -360,7 +337,50 @@ class Timetable(object):
         tt.tt()
 
     def day_test(self):
-        self._show_day(use_inline=True)
+        result = self._show_day(dont_send=True)
+        inline_keyboard = []
+        if self.day == 6:
+            next_day = 1
+            next_week = 3 - self.week
+        else:
+            next_day = self.day + 1
+            next_week = self.week
+        next_data = "/update w{} {}".format(next_week, days[next_day][0])
+
+        if self.day == 1:
+            previous_day = 6
+            previous_week = 3 - self.week
+        else:
+            previous_day = self.day - 1
+            previous_week = self.week
+        previous_data = "/update w{} {}".format(previous_week, days[previous_day][0])
+        row = [{'text': "<<", 'callback_data': previous_data},
+               {'text': ">>", 'callback_data': next_data}]
+        inline_keyboard.append(row)
+        reply(self.chat_id, msg=result, inline_keyboard=inline_keyboard)
+
+    def update(self, update_message_id):
+        result = self._show_day(dont_send=True)
+        inline_keyboard = []
+        if self.day == 6:
+            next_day = 1
+            next_week = 3 - self.week
+        else:
+            next_day = self.day + 1
+            next_week = self.week
+        next_data = "/update w{} {}".format(next_week, days[next_day][0])
+
+        if self.day == 1:
+            previous_day = 6
+            previous_week = 3 - self.week
+        else:
+            previous_day = self.day - 1
+            previous_week = self.week
+        previous_data = "/update w{} {}".format(previous_week, days[previous_day][0])
+        row = [{'text': "<<", 'callback_data': previous_data},
+               {'text': ">>", 'callback_data': next_data}]
+        inline_keyboard.append(row)
+        utils.update(self.chat_id, update_message_id, result, inline_keyboard)
 
 
 class GroupTimetable(Timetable):

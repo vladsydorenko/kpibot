@@ -42,6 +42,24 @@ def reply(chat_id, msg=None, location=None, keyboard=None, inline_keyboard=None)
         })
 
 
+def update(chat_id, upd_message_id, text, inline_keyboard=False):
+    reply_markup = {}
+    if not inline_keyboard:
+        # ReplyKeyboardHide object
+        reply_markup['hide_keyboard'] = True
+    elif inline_keyboard:
+        # InlineKeyboardMarkup object
+        reply_markup['inline_keyboard'] = inline_keyboard
+
+    requests.post(settings.BOT_URL + 'editMessageText', data={
+        'chat_id': str(chat_id),
+        'message_id': upd_message_id,
+        'text': text.encode('utf-8'),
+        'parse_mode': "Markdown",
+        'reply_markup': json.dumps(reply_markup),
+    })
+
+
 def get_group_id_by_name(group_name):
     from request_handler.models import Group
     try:
