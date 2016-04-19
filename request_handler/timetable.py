@@ -144,7 +144,7 @@ class Timetable(object):
         # Generate message body
         for lesson_number in self.timetable[self.week][self.day]:
             lesson = self.timetable[self.week][self.day][lesson_number]
-            result += "*{}*: {}{} - {}\n".format(lesson_number,
+            result += "*{}*: {}{} - {}".format(lesson_number,
                                                  lesson['discipline']['name'],
                                                  " (%s)" % types[lesson['type']] if lesson['type'] else "",
                                                  utils.generate_rooms_string(lesson['rooms'], self.responses))
@@ -359,7 +359,7 @@ class Timetable(object):
         tt = TeacherTimetable(self.chat_id, '/tt', teacher_id=self.teacher_id)
         tt.tt()
 
-    def day(self):
+    def day_test(self):
         self._show_day(use_inline=True)
 
 

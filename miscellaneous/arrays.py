@@ -16,6 +16,7 @@ commands = {
     "/next": 2,
     "/now": 2,
     "/remind": 0,
+    "/day_test": 1,
     "/setgroup": 1,
     "/setteacher": 3,
     "/start": 0,

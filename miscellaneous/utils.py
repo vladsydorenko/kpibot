@@ -149,8 +149,7 @@ def generate_rooms_string(rooms, responses):
     for room in rooms:
         result.append("%s-%s" % (room['name'], room['building']['name']))
 
-    return result.join(', ') + "\n"
-
+    return ', '.join(result) + "\n"
 
 def send_log(func):
     def wrapper(request, *args, **kwargs):
