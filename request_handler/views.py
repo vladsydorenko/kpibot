@@ -32,15 +32,18 @@ def index(request):
     except Chat.DoesNotExist:
         chat = Chat(chat_id=chat_id)
         chat.save()
-    except KeyError:
+    except ValueError:
+        data = request.body.decode('utf-8').replace(',{', ',"random_name":{')
+        data = json.loads(data)
+        upd_message_id = data['callbackquery']['message']['messageid']
         message = data['callbackquery']['data']
-        upd_message_id = data['callbackquery']['message']['message_id']
+        chat_id = data['callbackquery']['message']['chat']['id']
+        chat = Chat.objects.get(pk=chat_id)
 
     # Set user language
     responses = localization[chat.language]
     # Make commands and parameters case insensitive
     message = message.lower()
-
     # Check command existance
     command = message.split()[0].split('@')[0]
     if command not in commands:
