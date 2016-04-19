@@ -13,12 +13,17 @@ class StopExecution(Exception):
     pass
 
 
-def reply(chat_id, msg=None, location=None, keyboard=None):
+def reply(chat_id, msg=None, location=None, keyboard=None, inline_keyboard=None):
     if msg:
         reply_markup = {}
-        if not keyboard:
+        if not keyboard and not inline_keyboard:
+            # ReplyKeyboardHide object
             reply_markup['hide_keyboard'] = True
+        elif inline_keyboard:
+            # InlineKeyboardMarkup object
+            reply_markup['inline_keyboard'] = inline_keyboard
         else:
+            # ReplyKeyboardMarkup object
             reply_markup['keyboard'] = keyboard
             reply_markup['resize_keyboard'] = True
             reply_markup['one_time_keyboard'] = True
@@ -26,6 +31,7 @@ def reply(chat_id, msg=None, location=None, keyboard=None):
         requests.post(settings.BOT_URL + 'sendMessage', data={
             'chat_id': str(chat_id),
             'text': msg.encode('utf-8'),
+            'parse_mode': "Markdown",
             'reply_markup': json.dumps(reply_markup),
         })
     elif location:
@@ -132,12 +138,12 @@ def get_current_week():
     return 2 - datetime.date.today().isocalendar()[1] % 2
 
 
-def generate_rooms_string(rooms, responces):
+def generate_rooms_string(rooms, responses):
     """
     Generate string like "339-19, 302-18" from rooms array
     """
     if not rooms:
-        return responces['unknown_room'] + "\n"
+        return responses['unknown_room'] + "\n"
 
     result = []
     for room in rooms:
@@ -146,14 +152,14 @@ def generate_rooms_string(rooms, responces):
     return result.join(', ') + "\n"
 
 
-def log(func):
-    def wrapper(request):
+def send_log(func):
+    def wrapper(request, *args, **kwargs):
         try:
             func(request)
         except:
             import traceback
             reply(settings.LOG_CHAT_ID, msg=traceback.format_exc())
-            reply(settings.LOG_CHAT_ID, msg=request.body)
+            reply(settings.LOG_CHAT_ID, msg=request.body.decode())
         finally:
             return HttpResponse()
-    return func
+    return wrapper

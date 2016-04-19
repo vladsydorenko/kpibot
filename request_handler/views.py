@@ -1,6 +1,5 @@
 # -*- coding: UTF-8 -*-
 import json
-import datetime
 
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
@@ -12,13 +11,13 @@ from request_handler.models import Chat
 from miscellaneous.lang import localization
 from miscellaneous.botan import track
 from miscellaneous.arrays import commands, no_timetable_commands, time
-from miscellaneous.utils import reply, get_group_name_by_id, get_current_week, log
+from miscellaneous.utils import reply, get_group_name_by_id, get_current_week, send_log
 from request_handler.timetable import GroupTimetable, TeacherTimetable
 
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@log
+@send_log
 def index(request):
     chat = None
     message = ""
@@ -35,7 +34,7 @@ def index(request):
         chat.save()
 
     # Set user language
-    responces = localization[chat.language]
+    responses = localization[chat.language]
     # Make commands and parameters case insensitive
     message = message.lower()
 
@@ -50,11 +49,11 @@ def index(request):
 
     # If command doesn't need timetable
     if command == "/start" or command == "/help":
-        reply(chat_id, msg=responces['instructions'])
+        reply(chat_id, msg=responses['instructions'])
     elif command == "/authors":
-        reply(chat_id, msg=responces['authors'])
+        reply(chat_id, msg=responses['authors'])
     elif command == "/week":
-        reply(chat_id, msg=responces['week'].format(get_current_week()))
+        reply(chat_id, msg=responses['week'].format(get_current_week()))
     elif command == "/time":
         reply(chat_id, msg=time)
     elif command == "/changelang":
@@ -78,11 +77,4 @@ def index(request):
 
 @csrf_exempt
 def test(request):
-    #try:
-    #    tt = GroupTimetable(111791142, "/who")
-    #    tt.who()
-    #except Exception:
-    #    import traceback
-    #    reply(111791142, msg=traceback.format_exc())
-    #finally:
     return HttpResponse()
