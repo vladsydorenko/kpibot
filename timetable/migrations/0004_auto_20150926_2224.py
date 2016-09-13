@@ -7,7 +7,7 @@ from django.db import models, migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('request_handler', '0003_chat_language'),
+        ('timetable', '0003_chat_language'),
     ]
 
     operations = [

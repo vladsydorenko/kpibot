@@ -7,13 +7,12 @@ from django.db import models, migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('request_handler', '0007_remove_chat_group'),
+        ('timetable', '0006_auto_20151001_2157'),
     ]
 
     operations = [
-        migrations.AddField(
+        migrations.RemoveField(
             model_name='chat',
-            name='remind',
-            field=models.BooleanField(default=False),
+            name='group',
         ),
     ]

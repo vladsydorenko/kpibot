@@ -7,12 +7,13 @@ from django.db import models, migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('request_handler', '0001_initial'),
+        ('timetable', '0002_auto_20150820_2151'),
     ]
 
     operations = [
-        migrations.RenameModel(
-            old_name='User',
-            new_name='Chat',
+        migrations.AddField(
+            model_name='chat',
+            name='language',
+            field=models.CharField(default=b'ru', max_length=3),
         ),
     ]
