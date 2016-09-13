@@ -9,7 +9,7 @@ from django.http import HttpResponse
 from kpibot.utils import botan, constants, bot
 from timetable.models import Chat
 from timetable.parameters import Parameters
-from timetable.timetable import GroupTimetable, TeacherTimetable
+from timetable.timetable import Timetable
 
 
 @csrf_exempt
@@ -32,14 +32,14 @@ def index(request):
     # Statistics
     # botan.track(settings.BOTAN_TOKEN, user_id,
     #             {get_group_name_by_id(chat.group_id): 1}, "Group")
-    # botan.track(settings.BOTAN_TOKEN, user_id,
-    #             {"Group:": get_group_name_by_id(chat.group_id)}, command)
 
     # If command doesn't need timetable
     if command == "/start" or command == "/help":
-        bot.sendMessage(chat_id, text=_(constants.HELP_TEXT))
+        bot.sendMessage(chat_id, text=_(constants.HELP_TEXT),
+                        parse_mode="Markdown")
     elif command == "/authors":
-        bot.sendMessage(chat_id, text=_(constants.AUTHORS))
+        bot.sendMessage(chat_id, text=_(constants.AUTHORS),
+                        parse_mode="Markdown")
     elif command == "/week":
         current_week = 2 - date.today().isocalendar()[1] % 2
         bot.sendMessage(chat_id,
@@ -50,17 +50,14 @@ def index(request):
         chat.language = "uk" if chat.language == "ru" else "ru"
         chat.save()
         bot.sendMessage(chat_id, text=_("Язык бота был изменён"))
+    # TODO: Implement /setgroup and /setteacher
 
     if command in constants.NO_TIMETABLE_COMMANDS:
         return HttpResponse()
 
     parameters = Parameters(command, message.split[1:])
     if parameters.is_valid():
-        # If command require timetable
-        tt = TeacherTimetable(chat_id, message) if chat.group_id == -1 else GroupTimetable(chat_id, message)
-
-        # Command processing
-        getattr(tt, command[1:])()
+        pass  # TODO: Implement
     else:
         # Send list of all errors
         bot.sendMessage(chat_id, text='\n'.join(parameters.errors))
