@@ -1,5 +1,4 @@
 from django.db import models
-from miscellaneous.utils import get_group_name_by_id
 
 LANGUAGE_CHOICES = (
     ('ru', 'ru'),
@@ -18,10 +17,7 @@ class Chat(models.Model):
                                 choices=LANGUAGE_CHOICES,
                                 default='ru')
     category = models.CharField(max_length=10,
-                                choices=CHAT_CATEGORY_CHOICES)
+                                choices=CHAT_CATEGORY_CHOICES,
+                                null=True, blank=True)
     # Depends on category. Means group or teacher id in API.
-    resource_id = models.IntegerField(default=0)
-
-    def __str__(self):
-        return "{} - {}".format(self.chat_id,
-                                get_group_name_by_id(self.group_id))
+    resource_id = models.IntegerField(null=True, blank=True)
