@@ -63,3 +63,4 @@ key.py
 *.db
 touchme
 *_secure.py
+.DS_Store
