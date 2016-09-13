@@ -27,26 +27,27 @@ ALLOWED_HOSTS = []
 
 # Application definition
 
-INSTALLED_APPS = (
+INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'request_handler',
-)
+    'timetable',
+]
 
-MIDDLEWARE_CLASSES = (
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'django.middleware.security.SecurityMiddleware',
-)
+    'timetable.middlewares.LoggingMiddleware',
+    'timetable.middlewares.LocaleMiddleware',
+]
 
 ROOT_URLCONF = 'kpibot.urls'
 
@@ -84,7 +85,7 @@ DATABASES = {
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'ru-ru'
 
 TIME_ZONE = 'Europe/Kiev'
 
@@ -101,6 +102,6 @@ USE_TZ = True
 STATIC_ROOT = os.path.join(os.path.dirname(__file__), 'static/')
 STATIC_URL = '/static/'
 
-TIMETABLE_URL = "http://api.rozklad.hub.kpi.ua/"
+TIMETABLE_URL = "http://api.rozklad.hub.kpi.ua"
 
 from .settings_secure import *
