@@ -7,6 +7,7 @@ from kpibot.utils.test.factories import ChatFactory
 
 class TelegramBotTestCase(TestCase):
     """Basic test case for telegram chat bots."""
+
     def setUp(self):
         self.client = Client()
         self.chat = ChatFactory(language="ru")

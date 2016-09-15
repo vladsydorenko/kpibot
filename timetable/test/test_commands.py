@@ -17,7 +17,6 @@ class KPIBotSimpleCommandsTestCase(TelegramBotTestCase):
         self.command = "/changelang"
 
         self.client.post("/", self.payload, content_type="application/json")
-
         self.assertEqual(Chat.objects.first().language, "uk")
 
     @patch('kpibot.utils.bot.sendMessage')

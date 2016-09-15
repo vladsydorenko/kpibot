@@ -6,5 +6,4 @@ class ChatFactory(factory.Factory):
     class Meta:
         model = Chat
 
-    category = "group"
-    resource_id = factory.Sequence(lambda n: n)
+    id = factory.Sequence(lambda n: n)

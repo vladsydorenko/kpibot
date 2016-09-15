@@ -6,11 +6,11 @@ from timetable.parameters import Parameters
 class ParametersTestCase(TestCase):
     def test_parse_group_valid(self):
         valid_groups = {
-            'Кв-32': 'кв-32',
+            'кв-32': 'кв-32',
             'лн-51м': 'лн-51м',
             'лн-51с(махнв)': 'лн-51с(махнв)',
             'kv-32': 'кв-32',
-            'KV32m': 'кв-32м',
+            'kv32m': 'кв-32м',
             'тпс31м': 'тпс-31м',
             'tps42s(mahnv)': 'тпс-42с(махнв)'
         }
@@ -27,7 +27,7 @@ class ParametersTestCase(TestCase):
                          "Обязательный параметр не задан.")
 
     def test_setteacher_valid_name(self):
-        teachers_name = "Петров Иван Иванович"
+        teachers_name = "петров иван иванович"
         parameters = Parameters('/setteacher', [teachers_name])
         self.assertTrue(parameters.is_valid())
         self.assertEqual(parameters.teachers_name, teachers_name)
