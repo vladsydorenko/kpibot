@@ -32,7 +32,7 @@ class APIEntity(metaclass=ABCMeta):
             raise SendError(_(self.error_message_404))
         if data['count'] > 1:
             # If API returned more than 1 entity, that starts with passed
-            # entity, we creates list of all returned entities and let user to 
+            # entity, we creates list of all returned entities and let user to
             # choose what entity he want to use.
             entities = [entity['name'] for entity in data['results']]
             raise MultipleResults(entities)
@@ -40,8 +40,12 @@ class APIEntity(metaclass=ABCMeta):
             return data['results'][0]['id']
 
     def _get_entity_name(self):
-        response = requests.get(settings.TIMETABLE_URL + self.endpoint +\
-            str(self._id))
+        response = requests.get(settings.TIMETABLE_URL + self.endpoint +
+                                str(self._id))
+        if response.status_code == 404:
+            raise Exception("Wrong group id")
+
+        return response.json()['name']
 
 
 class Group(APIEntity):

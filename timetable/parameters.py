@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 
 from django.utils.translation import ugettext as _
 
-from kpibot.utils.constants import GROUP_REGEXP, WEEK_DAYS
+from kpibot.utils.constants import GROUP_REGEXP, WEEK_DAYS_ABBREVIATIONS
 
 
 # Helper functions
@@ -14,8 +14,8 @@ def transliterate(text):
 
 
 def get_week_day(token):
-    for day_number, days in WEEK_DAYS.items():
-        if token in days:
+    for day_number, day_names in WEEK_DAYS_ABBREVIATIONS.items():
+        if token in day_names:
             return day_number
     return False
 
@@ -45,7 +45,7 @@ class Parameters:
 
     def _parse_parameters(self, parameters):
         """Transform command parameters to class fields"""
-        for token in parameters.split():
+        for token in parameters:
             if re.match(GROUP_REGEXP, token):  # Group code
                 self.group_name = transliterate(token)
                 # To provide possability to enter group code without '-'
@@ -109,7 +109,6 @@ class Parameters:
                 if self.command == "/next":
                     self.lesson += 1
 
-
     def _validate_parameters(self):
         """Some parameters are used only with certain commands, so we need to
         check, if we don't have unnecessary parameters or vice versa, if we
@@ -122,6 +121,6 @@ class Parameters:
         elif self.command in ["/setteacher", "/teacher"] and\
                 (not hasattr(self, 'teachers_name') and
                  not hasattr(self, 'teacher_id')):
-            self.errors.append(_("Имя или id преподавателя не задано."))
+            self.errors.append(_("Имя или id преподавателя не заданы."))
         elif self.command == "/setgroup" and not hasattr(self, 'group_name'):
             self.errors.append(_("Обязательный параметр не задан."))
