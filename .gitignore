@@ -64,3 +64,5 @@ key.py
 touchme
 *_secure.py
 .DS_Store
+*.sublime-project
+*.sublime-workspace
