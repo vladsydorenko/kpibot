@@ -7,4 +7,4 @@ class ChatFactory(factory.Factory):
         model = Chat
 
     category = "group"
-    id = factory.Sequence(lambda n: n)
+    resource_id = factory.Sequence(lambda n: n)

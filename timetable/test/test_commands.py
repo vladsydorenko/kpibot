@@ -33,9 +33,6 @@ class KPIBotSimpleCommandsTestCase(TelegramBotTestCase):
     def test_week(self):
         pass
 
-    def test_where(self):
-        pass
-
     def test_who(self):
         pass
 
