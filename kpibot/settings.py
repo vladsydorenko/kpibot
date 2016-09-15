@@ -45,7 +45,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'timetable.middlewares.LoggingMiddleware',
+    'timetable.middlewares.ErrorHandlingMiddleware',
     'timetable.middlewares.LocaleMiddleware',
 ]
 

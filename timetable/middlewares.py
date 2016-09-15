@@ -7,8 +7,9 @@ from django.utils.translation import activate
 from timetable.models import Chat
 
 
-class LocaleMiddleware(object):
+class LocaleMiddleware:
     """Switch locale to chat language"""
+
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -25,8 +26,9 @@ class LocaleMiddleware(object):
         return response
 
 
-class LoggingMiddleware(object):
+class ErrorHandlingMiddleware:
     """Send all error messages to admin"""
+
     def __init__(self, get_response):
         self.get_response = get_response
 
