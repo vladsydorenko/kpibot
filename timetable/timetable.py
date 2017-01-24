@@ -45,11 +45,13 @@ class KPIHubTimetable:
             for day, lessons_list in week_timetable.items():
                 header = "{} ({} {}):\n".format(WEEK_DAYS[day], week_number,
                                                 _("неделя"))
-                self._send(header + '\n'.join(lessons_list))
+                self._send(header + '\n'.join(sorted(lessons_list)))
 
     def _format_lesson(self, lesson: dict):
         """Format API lesson response to readable form"""
-        lesson_type = " ({})".format(LESSON_TYPES.get(lesson['type'], ""))
+        lesson_type = " ({})".format(LESSON_TYPES[lesson['type']])\
+            if lesson['type'] in LESSON_TYPES else ""
+
         rooms_list = ", ".join(lesson['rooms_full_names']) if lesson['rooms']\
             else _("расположение неизвестно")
 
@@ -65,7 +67,7 @@ class KPIHubTimetable:
                 formatted_lesson += "— {}\n".format(_("неизвестно"))
         return formatted_lesson
 
-    def _get_next_lesson(self) -> list:
+    def _get_next_lesson(self):
         """Custom function for handling not trivial cases for '/next' command
         """
         # There are 3 possible scenarios:
