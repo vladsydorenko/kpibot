@@ -39,6 +39,6 @@ class Chat(models.Model):
         elif self.category == "teacher":
             return Teacher(resource_id=self.resource_id)
         else:
-            settings.BOT.sendMessage(self.chat_id, text=_(
+            settings.BOT.sendMessage(self.id, text=_(
                 "Группа или имя преподавателя по умолчанию не выставлены для этого чата"))
             raise StopExecution()

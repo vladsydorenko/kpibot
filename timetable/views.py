@@ -29,7 +29,7 @@ def index(request):
     except KeyError:
         return HttpResponse()
 
-    chat, created = Chat.objects.get_or_create(pk=chat_id)
+    chat, created = Chat.objects.get_or_create(id=chat_id)
 
     # Check command existance
     command = message.split()[0].split('@')[0]
