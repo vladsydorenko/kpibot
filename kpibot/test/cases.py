@@ -2,7 +2,7 @@ import json
 
 from django.test import TestCase, Client
 
-from kpibot.utils.test.factories import ChatFactory
+from kpibot.test.factories import ChatFactory
 
 
 class TelegramBotTestCase(TestCase):

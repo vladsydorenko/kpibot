@@ -1,10 +1,10 @@
 from unittest.mock import patch
 from django.utils.translation import activate, get_language
-from kpibot.utils.test.cases import TelegramBotTestCase
+from kpibot.test.cases import TelegramBotTestCase
 
 
 class LocalizationTestCase(TelegramBotTestCase):
-    @patch('kpibot.utils.bot.sendMessage')
+    @patch('timetable.views.bot.sendMessage')
     def test_russian_locale(self, sm_mock):
         self.chat.language = "ru"
         self.chat.save()
@@ -15,7 +15,7 @@ class LocalizationTestCase(TelegramBotTestCase):
         current_language = get_language()
         self.assertEqual(current_language, "ru")
 
-    @patch('kpibot.utils.bot.sendMessage')
+    @patch('timetable.views.bot.sendMessage')
     def test_ukrainian_locale(self, sm_mock):
         self.chat.language = "uk"
         self.chat.save()

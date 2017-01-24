@@ -4,11 +4,10 @@ from collections import defaultdict
 from django.conf import settings
 from django.utils.translation import ugettext as _
 
-from kpibot.utils import bot
-from kpibot.utils.exceptions import StopExecution
-from kpibot.utils.constants import LESSON_TYPES, WEEK_DAYS
-from timetable.models import Chat
+from timetable.constants import LESSON_TYPES, WEEK_DAYS
 from timetable.entities import APIEntity, Group, Teacher
+from timetable.exceptions import StopExecution
+from timetable.models import Chat
 from timetable.parameters import Parameters
 
 
@@ -26,27 +25,27 @@ class KPIHubTimetable:
         # Prepare data
         self.timetable = self._get_timetable()
 
-    def run(self, command):
+    def execute(self, command):
         # If API returned empty array
         if not self.timetable:
             if command == "/next":
                 self.timetable = self._get_next_lesson()
-
             else:
                 self._send(_("Пар нет, наслаждайся."))
                 return
 
         # Transform timetable dictionary to readable form
-        result = defaultdict(defaultdict(""))
+        result = defaultdict(lambda: defaultdict(list))
         for lesson in self.timetable:
-            result[lesson['week']][lesson['day']] += self._format_lesson(lesson)
+            result[lesson['week']][lesson['day']].append(
+                self._format_lesson(lesson))
 
         # Send prepared messages
         for week_number, week_timetable in result.items():
-            for day, text in week_timetable:
+            for day, lessons_list in week_timetable.items():
                 header = "{} ({} {}):\n".format(WEEK_DAYS[day], week_number,
                                                 _("неделя"))
-                self._send(header + text)
+                self._send(header + '\n'.join(lessons_list))
 
     def _format_lesson(self, lesson: dict):
         """Format API lesson response to readable form"""
@@ -54,12 +53,12 @@ class KPIHubTimetable:
         rooms_list = ", ".join(lesson['rooms_full_names']) if lesson['rooms']\
             else _("расположение неизвестно")
 
-        formatted_lesson = "\n*{}*: {}{} - {}".format(lesson['number'],
-                                                      lesson['discipline_name'],
-                                                      lesson_type,
-                                                      rooms_list)
+        formatted_lesson = "*{}*: {}{} - {}".format(lesson['number'],
+                                                    lesson['discipline_name'],
+                                                    lesson_type,
+                                                    rooms_list)
         # If "T" parameter has been passed, add teachers names to response.
-        if self.parameters.print_teacher:
+        if hasattr(self.parameters, 'print_teacher'):
             if lesson['teachers']:
                 formatted_lesson += "— {}\n".join(lesson['teachers_short_names'])
             else:
@@ -99,7 +98,7 @@ class KPIHubTimetable:
         else:
             # 3. Timetable for this group/teacher is empty.
             self._send(_("К сожалению, для Вас в базе нет расписания :("))
-            raise StopExecution
+            raise StopExecution()
 
     def _get_timetable(self, query_parameters={}) -> list:
         if not query_parameters:
@@ -110,15 +109,17 @@ class KPIHubTimetable:
                     query_parameters[parameter] = getattr(self.parameters,
                                                           parameter)
         if isinstance(self.entity, Group):
-            query_parameters['groups'] = self.entity.id
+            query_parameters['groups'] = self.entity.resource_id
         elif isinstance(self.entity, Teacher):
-            query_parameters['teachers'] = self.entity.id
+            query_parameters['teachers'] = self.entity.resource_id
+        query_parameters['limit'] = 100
 
-        response = requests.get(settings.TIMETABLE_URL + '/lessons.json',
+        response = requests.get(settings.TIMETABLE_URL + '/lessons',
                                 query_parameters)
 
         return response.json()['results']
 
     def _send(self, text):
         """Shortcut for sending text response to user"""
-        bot.sendMessage(self.chat_id, text=text, parse_mode='Markdown')
+        settings.BOT.sendMessage(self.chat.id, text=text,
+                                 parse_mode='Markdown')

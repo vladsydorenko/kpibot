@@ -1,8 +1,8 @@
 from django.db import models
+from django.conf import settings
 from django.utils.translation import ugettext as _
 
-from kpibot.utils import bot
-from kpibot.utils.exceptions import StopExecution
+from timetable.exceptions import StopExecution
 from timetable.entities import Group, Teacher
 
 LANGUAGE_CHOICES = (
@@ -28,11 +28,17 @@ class Chat(models.Model):
     resource_id = models.IntegerField(null=True, blank=True)
 
     def get_entity(self):
+        """Get object corresponding to chat user type.
+
+        Depending on chat user type return Group or Teacher
+        object, or if we don't have predefined user type from this
+        chat - stop execution.
+        """
         if self.category == "group":
-            return Group(_id=self.resource_id)
+            return Group(resource_id=self.resource_id)
         elif self.category == "teacher":
-            return Teacher(_id=self.resource_id)
+            return Teacher(resource_id=self.resource_id)
         else:
-            bot.sendMessage(self.chat_id, text=_("Группа или имя преподавателя " +
-                            "по умолчанию не выставлены для этого чата"))
+            settings.BOT.sendMessage(self.chat_id, text=_(
+                "Группа или имя преподавателя по умолчанию не выставлены для этого чата"))
             raise StopExecution()

@@ -1,17 +1,20 @@
 import json
 from datetime import date
 
+from django.conf import settings
 from django.http import HttpResponse
 from django.utils.translation import ugettext as _
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from kpibot.utils.exceptions import StopExecution
-from kpibot.utils import botan, constants, bot
+from timetable import constants
+from timetable.exceptions import StopExecution, MultipleResults, SendError
 from timetable.models import Chat
 from timetable.entities import Group, Teacher
 from timetable.parameters import Parameters
 from timetable.timetable import KPIHubTimetable
+
+bot = settings.BOT
 
 
 @csrf_exempt
@@ -21,7 +24,10 @@ def index(request):
     message = data['message'] if 'message' in data\
         else data['edited_message']
     chat_id = message['chat']['id']
-    message = message['text'].lower()
+    try:
+        message = message['text'].lower()
+    except KeyError:
+        return HttpResponse()
 
     chat, created = Chat.objects.get_or_create(pk=chat_id)
 
@@ -44,7 +50,7 @@ def index(request):
     elif command == "/week":
         current_week = 2 - date.today().isocalendar()[1] % 2
         bot.sendMessage(chat_id,
-                        text=_("Сейчас {0} неделя".format(current_week)))
+                        text=_("Сейчас {} неделя").format(current_week))
     elif command == "/time":
         bot.sendMessage(chat_id, text=constants.TIME)
     elif command == "/changelang":
@@ -61,13 +67,13 @@ def index(request):
         if command == "/setgroup":
             group = Group(name=parameters.group_name)
             chat.category = 'group'
-            chat.resource_id = group.id
+            chat.resource_id = group.resource_id
             chat.save()
             bot.sendMessage(chat_id, text=_("Я запомнил Вашу группу!"))
         elif command == "/setteacher":
             teacher = Teacher(name=parameters.teachers_name)
             chat.category = 'teacher'
-            chat.resource_id = teacher.id
+            chat.resource_id = teacher.resource_id
             chat.save()
             bot.sendMessage(chat_id, text=_("Я запомнил Ваше имя!"))
         else:
@@ -75,10 +81,16 @@ def index(request):
                 # If group was passed as parameter, use this group
                 if hasattr(parameters, 'group_name'):
                     entity = Group(name=parameters.group_name)
+                elif hasattr(parameters, 'teachers_name'):
+                    entity = Teacher(name=parameters.teachers_name)
                 else:  # Otherwise - use chat group (it should be set)
                     entity = chat.get_entity()
                 timetable = KPIHubTimetable(chat, entity, parameters)
-                timetable.run(command)
+                timetable.execute(command)
+            except SendError as e:
+                bot.sendMessage(chat_id, text=str(e))
+            except MultipleResults:
+                pass  # TODO: Handle multiple groups and teachers
             except StopExecution:
                 pass
     else:

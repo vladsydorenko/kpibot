@@ -23,12 +23,11 @@ class ParametersTestCase(TestCase):
     def test_parse_group_invalid_parameter(self):
         parameters = Parameters('/setgroup', ['123'])
         self.assertFalse(parameters.is_valid())
-        self.assertEqual(parameters.errors[0],
-                         "Обязательный параметр не задан.")
+        self.assertTrue("Код группы не задан." in parameters.errors)
 
     def test_setteacher_valid_name(self):
         teachers_name = "петров иван иванович"
-        parameters = Parameters('/setteacher', [teachers_name])
+        parameters = Parameters('/setteacher', teachers_name.split())
         self.assertTrue(parameters.is_valid())
         self.assertEqual(parameters.teachers_name, teachers_name)
 
@@ -43,6 +42,39 @@ class ParametersTestCase(TestCase):
         self.assertFalse(parameters.is_valid())
         self.assertEqual(parameters.errors[0],
                          "Имя или id преподавателя не заданы.")
+
+    def test_week_parameter_valid(self):
+        parameters = Parameters('/tt', ['w1'])
+        self.assertTrue(parameters.is_valid())
+        self.assertEqual(parameters.week, 1)
+
+        parameters = Parameters('/tt', ['w2'])
+        self.assertTrue(parameters.is_valid())
+        self.assertEqual(parameters.week, 2)
+
+    def test_auto_week_parameter(self):
+        parameters = Parameters('/tt', ['w'])
+        self.assertTrue(parameters.is_valid())
+        self.assertTrue(hasattr(parameters, 'week'))
+
+    def test_week_parameter_invalid(self):
+        parameters = Parameters('/tt', ['w5'])
+        self.assertFalse(parameters.is_valid())
+        self.assertEqual(parameters.errors[0], "Неправильный параметр")
+
+    def test_print_teacher_param(self):
+        parameters = Parameters('/tt', ['t'])
+        self.assertTrue(parameters.is_valid())
+        self.assertTrue(parameters.print_teacher)
+
+    def test_day_number_param(self):
+        parameters = Parameters('/tt', ['mon'])
+        self.assertTrue(parameters.is_valid())
+        self.assertEqual(parameters.day, 1)
+
+        parameters = Parameters('/tt', ['fri'])
+        self.assertTrue(parameters.is_valid())
+        self.assertEqual(parameters.day, 5)
 
     def test_invalid_parameter(self):
         parameters = Parameters('/setteacher', 'sdf$xcd')
