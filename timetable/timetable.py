@@ -13,6 +13,7 @@ from timetable.parameters import Parameters
 
 class KPIHubTimetable:
     """Base class for interacting with timetable API.
+
     Takes Chat object, entity (Group or Teacher object), Parameters object,
     and sends corresponding message to user.
     """
@@ -21,8 +22,6 @@ class KPIHubTimetable:
         self.chat = chat
         self.entity = entity
         self.parameters = parameters
-
-        # Prepare data
         self.timetable = self._get_timetable()
 
     def execute(self, command):
@@ -108,17 +107,15 @@ class KPIHubTimetable:
 
             for parameter in possible_query_parameters:
                 if hasattr(self.parameters, parameter):
-                    query_parameters[parameter] = getattr(self.parameters,
-                                                          parameter)
+                    query_parameters[parameter] = getattr(self.parameters, parameter)
+
         if isinstance(self.entity, Group):
             query_parameters['groups'] = self.entity.resource_id
         elif isinstance(self.entity, Teacher):
             query_parameters['teachers'] = self.entity.resource_id
         query_parameters['limit'] = 100
 
-        response = requests.get(settings.TIMETABLE_URL + '/lessons',
-                                query_parameters)
-
+        response = requests.get(settings.TIMETABLE_URL + '/lessons', query_parameters)
         return response.json()['results']
 
     def _send(self, text):

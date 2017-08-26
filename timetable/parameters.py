@@ -39,7 +39,7 @@ class Parameters:
         # If errors array is not empty, validation gone wrong, so return false.
         return not self.errors
 
-    def _parse_parameters(self, parameters) -> None:
+    def _parse_parameters(self, parameters: list) -> None:
         """Transform string with command parameters to class fields"""
         for token in parameters:
             if re.match(GROUP_REGEXP, token):  # Group code
@@ -76,11 +76,11 @@ class Parameters:
         """For some commands, like '/today' or '/now' we need to manually set
         day number, week number and lesson number basing on current time.
         """
-        if self.command in ["/today", "/tomorrow", "/now", "/next", "/where",
-                            "/who"]:
+        if self.command in ["/today", "/tomorrow", "/now", "/next", "/where", "/who"]:
             current_date = date.today()
             if self.command == "/tomorrow":
                 current_date += timedelta(days=1)
+
             self.week = 2 - current_date.isocalendar()[1] % 2
             self.day = current_date.weekday() + 1
             if self.command in ["/now", "/next", "/where", "/who"]:
@@ -96,7 +96,7 @@ class Parameters:
                     datetime(now.year, now.month, now.day, 17, 45),
                     datetime(now.year, now.month, now.day, 23, 59)
                 ]
-                for i in range(len(pairs)):
+                for i in range(len(pairs) - 1):
                     if now > pairs[i] and now < pairs[i + 1]:
                         self.lesson = i
                         break
@@ -125,14 +125,13 @@ class Parameters:
 
     # Helper functions
     @staticmethod
-    def transliterate(text):
+    def transliterate(text: str):
         tr_en_ua = str.maketrans("abcdefghijklmnopqrstuvwxyz",
                                  "абцдефгхіжклмнопкрстуввхуз")
         return text.translate(tr_en_ua)
 
     @staticmethod
-    def get_week_day(token):
+    def get_week_day(token: str):
         for day_number, day_names in WEEK_DAYS_ABBREVIATIONS.items():
             if token in day_names:
                 return day_number
-        return False

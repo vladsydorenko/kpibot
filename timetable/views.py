@@ -21,10 +21,14 @@ bot = settings.BOT
 @require_http_methods(["POST"])
 def index(request):
     data = json.loads(request.body.decode('utf-8'))
-    message = data['message'] if 'message' in data\
-        else data['edited_message']
+    try:
+        message = data['message'] if 'message' in data else data['edited_message']
+    except KeyError:
+        pass
+
     chat_id = message['chat']['id']
     try:
+        # Check that user sent text, not image or anything else.
         message = message['text'].lower()
     except KeyError:
         return HttpResponse()
@@ -41,16 +45,13 @@ def index(request):
     #             {get_group_name_by_id(chat.group_id): 1}, "Group")
 
     # If command doesn't need timetable
-    if command == "/start" or command == "/help":
-        bot.sendMessage(chat_id, text=_(constants.HELP_TEXT),
-                        parse_mode="Markdown")
+    if command in ["/start", "/help"]:
+        bot.sendMessage(chat_id, text=_(constants.HELP_TEXT), parse_mode="Markdown")
     elif command == "/authors":
-        bot.sendMessage(chat_id, text=_(constants.AUTHORS),
-                        parse_mode="Markdown")
+        bot.sendMessage(chat_id, text=_(constants.AUTHORS), parse_mode="Markdown")
     elif command == "/week":
         current_week = 2 - date.today().isocalendar()[1] % 2
-        bot.sendMessage(chat_id,
-                        text=_("Сейчас {} неделя").format(current_week))
+        bot.sendMessage(chat_id, text=_("Сейчас {} неделя").format(current_week))
     elif command == "/time":
         bot.sendMessage(chat_id, text=constants.TIME)
     elif command == "/changelang":
@@ -85,6 +86,7 @@ def index(request):
                     entity = Teacher(name=parameters.teachers_name)
                 else:  # Otherwise - use chat group (it should be set)
                     entity = chat.get_entity()
+
                 timetable = KPIHubTimetable(chat, entity, parameters)
                 timetable.execute(command)
             except SendError as e:

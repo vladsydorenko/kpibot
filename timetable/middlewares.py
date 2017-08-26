@@ -8,6 +8,7 @@ from timetable.models import Chat
 
 bot = settings.BOT
 
+
 class LocaleMiddleware:
     """Switch locale to chat language"""
 
@@ -15,13 +16,17 @@ class LocaleMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        data = json.loads(request.body.decode('utf-8'))
-        chat_id = data['message']['chat']['id']
         try:
-            chat = Chat.objects.get(pk=chat_id)
-            activate(chat.language)
-        except Chat.DoesNotExist:
-            activate("ru")
+            data = json.loads(request.body.decode('utf-8'))
+            chat_id = data['message']['chat']['id']
+            try:
+                chat = Chat.objects.get(pk=chat_id)
+            except Chat.DoesNotExist:
+                activate("ru")
+            else:
+                activate(chat.language)
+        except:
+            pass
 
         response = self.get_response(request)
         return response
@@ -42,7 +47,7 @@ class ErrorHandlingMiddleware:
         chat_id = data['message']['chat']['id']
         bot.sendMessage(chat_id=chat_id, text="""Из-за кривых рук моего
 разработчика случилась нередвиденная ошибка, но он уже об этом знает и скоро
-всё исправит. Если ты хочешь пнуть его лично, то пиши @vladsydorenko""")
+всё исправит. Если ты хочешь пнуть его лично, то пиши @vladsydorenko""".replace('\n', ' '))
         # Send traceback to developer
         import traceback
         bot.sendMessage(chat_id=settings.LOG_CHAT_ID,
