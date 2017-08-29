@@ -4,7 +4,7 @@ from kpibot.test.cases import TelegramBotTestCase
 
 
 class LocalizationTestCase(TelegramBotTestCase):
-    @patch('timetable.views.bot.sendMessage')
+    @patch('timetable.views.bot.send_message')
     def test_russian_locale(self, sm_mock):
         self.chat.language = "ru"
         self.chat.save()
@@ -15,7 +15,7 @@ class LocalizationTestCase(TelegramBotTestCase):
         current_language = get_language()
         self.assertEqual(current_language, "ru")
 
-    @patch('timetable.views.bot.sendMessage')
+    @patch('timetable.views.bot.send_message')
     def test_ukrainian_locale(self, sm_mock):
         self.chat.language = "uk"
         self.chat.save()

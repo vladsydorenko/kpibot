@@ -27,3 +27,4 @@ six==1.10.0
 traitlets==4.3.1
 urllib3==1.20
 wcwidth==0.1.7
+django-rosetta

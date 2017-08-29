@@ -1,101 +1,60 @@
 import json
-from datetime import date
 
 from django.conf import settings
 from django.http import HttpResponse
-from django.utils.translation import ugettext as _
+from django.utils.decorators import method_decorator
+from django.views import View
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
 
 from timetable import constants
-from timetable.exceptions import StopExecution, MultipleResults, SendError
+from timetable import commands
 from timetable.models import Chat
-from timetable.entities import Group, Teacher
-from timetable.parameters import Parameters
-from timetable.timetable import KPIHubTimetable
 
 bot = settings.BOT
 
 
-@csrf_exempt
-@require_http_methods(["POST"])
-def index(request):
-    data = json.loads(request.body.decode('utf-8'))
-    try:
-        message = data['message'] if 'message' in data else data['edited_message']
-    except KeyError:
-        pass
+@method_decorator(csrf_exempt, name='dispatch')
+class CommandDispatcherView(View):
+    def post(self, request):
+        data = json.loads(request.body.decode('utf-8'))
+        try:
+            # Edited messages has different key in request payload, so we need to handle it
+            message = data['message'] if 'message' in data else data['edited_message']
+        except KeyError:
+            # Bot can receive messages that it shouldn't process (like new participant in group chat),
+            # so we need to just ignore such messages
+            return HttpResponse()
 
-    chat_id = message['chat']['id']
-    try:
-        # Check that user sent text, not image or anything else.
-        message = message['text'].lower()
-    except KeyError:
+        chat_id = message['chat']['id']
+        self.chat, _ = Chat.objects.get_or_create(id=chat_id)
+
+        try:
+            # Check that user sent text, not image or anything else.
+            message = message['text'].lower()
+        except KeyError:
+            return HttpResponse()
+
+        # Check if we can process such command
+        command = message.split()[0].split('@')[0]
+        if command not in constants.ALLOWED_COMMANDS:
+            return HttpResponse()
+
+        # If command doesn't need timetable
+        param_tokens = message.split()[1:]
+        command_objects = {
+            '/changelang': commands.ChangeLanguageCommand,
+            '/help': commands.HelpCommand,
+            '/now': commands.NowCommand,
+            '/setgroup': commands.SetgroupCommand,
+            '/setteacher': commands.SetteacherCommand,
+            '/start': commands.HelpCommand,
+            '/teacher': commands.TeacherCommand,
+            '/time': commands.TimeCommand,
+            '/today': commands.TodayCommand,
+            '/tt': commands.TTCommand,
+            '/week': commands.WeekCommand,
+        }
+
+        command_objects[command](param_tokens, self.chat).run()
+
         return HttpResponse()
-
-    chat, created = Chat.objects.get_or_create(id=chat_id)
-
-    # Check command existance
-    command = message.split()[0].split('@')[0]
-    if command not in constants.ALLOWED_COMMANDS:
-        return HttpResponse()
-
-    # Statistics
-    # botan.track(settings.BOTAN_TOKEN, user_id,
-    #             {get_group_name_by_id(chat.group_id): 1}, "Group")
-
-    # If command doesn't need timetable
-    if command in ["/start", "/help"]:
-        bot.sendMessage(chat_id, text=_(constants.HELP_TEXT), parse_mode="Markdown")
-    elif command == "/authors":
-        bot.sendMessage(chat_id, text=_(constants.AUTHORS), parse_mode="Markdown")
-    elif command == "/week":
-        current_week = 2 - date.today().isocalendar()[1] % 2
-        bot.sendMessage(chat_id, text=_("Сейчас {} неделя").format(current_week))
-    elif command == "/time":
-        bot.sendMessage(chat_id, text=constants.TIME)
-    elif command == "/changelang":
-        chat.language = "uk" if chat.language == "ru" else "ru"
-        chat.save()
-        bot.sendMessage(chat_id, text=_("Язык бота был изменён"))
-
-    if command in constants.NO_TIMETABLE_COMMANDS:
-        return HttpResponse()
-
-    # If we need to get information from API.
-    parameters = Parameters(command, message.split()[1:])
-    if parameters.is_valid():
-        if command == "/setgroup":
-            group = Group(name=parameters.group_name)
-            chat.category = 'group'
-            chat.resource_id = group.resource_id
-            chat.save()
-            bot.sendMessage(chat_id, text=_("Я запомнил Вашу группу!"))
-        elif command == "/setteacher":
-            teacher = Teacher(name=parameters.teachers_name)
-            chat.category = 'teacher'
-            chat.resource_id = teacher.resource_id
-            chat.save()
-            bot.sendMessage(chat_id, text=_("Я запомнил Ваше имя!"))
-        else:
-            try:
-                # If group was passed as parameter, use this group
-                if hasattr(parameters, 'group_name'):
-                    entity = Group(name=parameters.group_name)
-                elif hasattr(parameters, 'teachers_name'):
-                    entity = Teacher(name=parameters.teachers_name)
-                else:  # Otherwise - use chat group (it should be set)
-                    entity = chat.get_entity()
-
-                timetable = KPIHubTimetable(chat, entity, parameters)
-                timetable.execute(command)
-            except SendError as e:
-                bot.sendMessage(chat_id, text=str(e))
-            except MultipleResults:
-                pass  # TODO: Handle multiple groups and teachers
-            except StopExecution:
-                pass
-    else:
-        # Send list of all validation errors
-        bot.sendMessage(chat_id, text='\n'.join(parameters.errors))
-    return HttpResponse()

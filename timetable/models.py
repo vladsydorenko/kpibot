@@ -1,9 +1,4 @@
 from django.db import models
-from django.conf import settings
-from django.utils.translation import ugettext as _
-
-from timetable.exceptions import StopExecution
-from timetable.entities import Group, Teacher
 
 LANGUAGE_CHOICES = (
     ('ru', 'ru'),
@@ -27,18 +22,5 @@ class Chat(models.Model):
     # Depends on category. Means group or teacher id in API.
     resource_id = models.IntegerField(null=True, blank=True)
 
-    def get_entity(self):
-        """Get object corresponding to chat user type.
-
-        Depending on chat user type return Group or Teacher
-        object, or if we don't have predefined user type from this
-        chat - stop execution.
-        """
-        if self.category == "group":
-            return Group(resource_id=self.resource_id)
-        elif self.category == "teacher":
-            return Teacher(resource_id=self.resource_id)
-        else:
-            settings.BOT.sendMessage(self.id, text=_(
-                "Группа или имя преподавателя по умолчанию не выставлены для этого чата"))
-            raise StopExecution()
+    def __str__(self):
+        return "{} - {} ({})".format(self.id, self.category, self.resource_id)

@@ -10,7 +10,7 @@ from kpibot.test.factories import ParametersFactory, GroupFactory
 class TimetableTestCase(TelegramBotTestCase):
     @patch('requests.models.Response.json',
            return_value=api_response_one_lesson_fixture)
-    @patch('kpibot.settings.BOT.sendMessage')
+    @patch('kpibot.settings.BOT.send_message')
     def test_run_one_lesson(self, sm_mock, gt_mock):
         parameters = ParametersFactory()
         parameters.week = one_lesson_fixture['week'],

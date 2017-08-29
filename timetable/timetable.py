@@ -8,23 +8,22 @@ from timetable.constants import LESSON_TYPES, WEEK_DAYS
 from timetable.entities import APIEntity, Group, Teacher
 from timetable.exceptions import StopExecution
 from timetable.models import Chat
-from timetable.parameters import Parameters
 
 
 class KPIHubTimetable:
-    """Base class for interacting with timetable API.
-
-    Takes Chat object, entity (Group or Teacher object), Parameters object,
-    and sends corresponding message to user.
-    """
-
-    def __init__(self, chat: Chat, entity: APIEntity, parameters: Parameters):
+    """Class for interacting with rozklad.hub.kpi.ua as timetable backend"""
+    def __init__(self, chat: Chat, entity: APIEntity, parameters: dict):
         self.chat = chat
         self.entity = entity
         self.parameters = parameters
         self.timetable = self._get_timetable()
 
     def execute(self, command):
+        """Execute command using previously retrieved timetable.
+
+        :param command: passed command without parameters
+        :type command: str
+        """
         # If API returned empty array
         if not self.timetable:
             if command == "/next":
@@ -67,8 +66,7 @@ class KPIHubTimetable:
         return formatted_lesson
 
     def _get_next_lesson(self):
-        """Custom function for handling not trivial cases for '/next' command
-        """
+        """Custom function for handling not trivial cases for '/next' command"""
         # There are 3 possible scenarios:
         # 1. There is no next lesson, but there are lessons today in future.
         query_parameters = {
@@ -120,5 +118,4 @@ class KPIHubTimetable:
 
     def _send(self, text):
         """Shortcut for sending text response to user"""
-        settings.BOT.sendMessage(self.chat.id, text=text,
-                                 parse_mode='Markdown')
+        settings.BOT.send_message(self.chat.id, text=text, parse_mode='Markdown')

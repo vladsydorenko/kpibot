@@ -4,8 +4,9 @@ from django.conf import settings
 from django.http import HttpResponse
 from django.utils.translation import activate
 
+from timetable.exceptions import ParsingError, ValidationError, StopExecution
+from timetable.constants import EXCEPTION_MESSAGE
 from timetable.models import Chat
-
 bot = settings.BOT
 
 
@@ -26,7 +27,7 @@ class LocaleMiddleware:
             else:
                 activate(chat.language)
         except:
-            pass
+            return HttpResponse()
 
         response = self.get_response(request)
         return response
@@ -45,13 +46,14 @@ class ErrorHandlingMiddleware:
     def process_exception(self, request, exception):
         data = json.loads(request.body.decode('utf-8'))
         chat_id = data['message']['chat']['id']
-        bot.sendMessage(chat_id=chat_id, text="""Из-за кривых рук моего
-разработчика случилась нередвиденная ошибка, но он уже об этом знает и скоро
-всё исправит. Если ты хочешь пнуть его лично, то пиши @vladsydorenko""".replace('\n', ' '))
-        # Send traceback to developer
-        import traceback
-        bot.sendMessage(chat_id=settings.LOG_CHAT_ID,
-                        text=traceback.format_exc())
-        bot.sendMessage(chat_id=settings.LOG_CHAT_ID,
-                        text=json.dumps(data, indent=4))
+
+        if exception.__class__ in (ParsingError, ValidationError):
+            bot.send_message(chat_id=chat_id, text=str(exception))
+        elif exception.__class__ != StopExecution:
+            bot.send_message(chat_id=chat_id, text=EXCEPTION_MESSAGE)
+
+            # Send traceback to developer
+            import traceback
+            bot.send_message(chat_id=settings.LOG_CHAT_ID, text=traceback.format_exc())
+            bot.send_message(chat_id=settings.LOG_CHAT_ID, text="```\n{}\n```".format(json.dumps(data, indent=4)))
         return HttpResponse()
