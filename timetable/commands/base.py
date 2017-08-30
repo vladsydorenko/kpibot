@@ -2,15 +2,13 @@ import abc
 import logging
 import re
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 import telegram
 from django.conf import settings
-from django.utils.translation import activate
 from django.utils.translation import ugettext as _
 
 from timetable.api_client import KPIHubAPIClient
-from timetable.constants import HELP_TEXT, TIME
 from timetable.exceptions import ParsingError, ValidationError, StopExecution
 
 
@@ -57,6 +55,7 @@ class TelegramCommand(metaclass=abc.ABCMeta):
     All parameters that are not described in this dict will be processed as restricted for this command.
     """
     validation_schema = {}
+    validate_not_allowed_arguments = False
 
     def __init__(self, arguments, chat):
         self.chat = chat
@@ -66,12 +65,10 @@ class TelegramCommand(metaclass=abc.ABCMeta):
 
         self.validate_arguments()
 
-    @abc.abstractmethod
-    def run(self):
-        """Placeholder for implementing logic for particular command, each command must implement this method.
-
-        On this stage we already have parsed and validated parameters.
-        """
+    @abc.abstractproperty
+    @property
+    def command(self):
+        """Every command class should describe what Telegram command it implements in `command` field"""
         pass
 
     def parse(self, arguments_list) -> dict:
@@ -135,8 +132,7 @@ class TelegramCommand(metaclass=abc.ABCMeta):
         if not parsing_errors:
             return parsed_arguments
         else:
-            self.reply('\n'.join(parsing_errors))
-            raise ParsingError("Parsing failed, exceptions: {}".format(parsing_errors))
+            raise ParsingError('\n'.join(parsing_errors))
 
     def set_default_values(self):
         """If some arguments wasn't explicitly passed - set some default values.
@@ -153,9 +149,12 @@ class TelegramCommand(metaclass=abc.ABCMeta):
         # Check existance of such group
         if 'group_name' in self.arguments:
             results = KPIHubAPIClient.find_group(self.arguments['group_name'])
-            if not results:
+            # When we search group in API, we might have 3 cases:
+            if not results:  # We can't find such group
                 raise ValidationError(_('Не могу найти такую группу. А ты уверен что ты знаешь где ты учишься?'))
-            elif len(results) > 1:
+            elif len(results) > 1:  # We have multiple groups that starts like passed value
+                # In that case we construct custom keyboard with all possible choises of group
+                # Important: we need self.unparsed_arguments to add all other arguments to created command
                 custom_keyboard = []
 
                 for group_object in results:
@@ -180,8 +179,12 @@ class TelegramCommand(metaclass=abc.ABCMeta):
                 raise ValidationError(_('Не могу найти преподавателя с таким именем. '
                                         'А ты точно написал его имя на украинском?'))
             elif len(results) > 1:
-                # TODO: construct custom keyboard
-                pass
+                custom_keyboard = [[
+                    '{} {} {}'.format(self.command, teacher_object['name'], ' '.join(self.unparsed_arguments))]
+                    for teacher_object in results
+                ]
+                self.reply(_('Тут есть несколько подходящих групп, выбери свою'), custom_keyboard)
+                raise StopExecution
             else:
                 self.arguments['teachers'] = results[0]['id']
                 del self.arguments['teachers_name']
@@ -195,9 +198,18 @@ class TelegramCommand(metaclass=abc.ABCMeta):
                 raise ValidationError(_('Хей, ты не передал один из обязательных аргументов.'))
 
         # Check if all other arguments are not restricted
-        # allowed_arguments = self.validation_schema.get('required', []) + self.validation_schema.get('optional', [])
-        # if set(self.arguments.keys()) - set(allowed_arguments):
-        #     raise ValidationError(_('Слушай, ну вот зачем ты мне лишние параметры для команды передаёшь?'))
+        if self.validate_not_allowed_arguments:
+            allowed_arguments = self.validation_schema.get('required', []) + self.validation_schema.get('optional', [])
+            if set(self.arguments.keys()) - set(allowed_arguments):
+                raise ValidationError(_('Слушай, ну вот зачем ты мне лишние параметры для команды передаёшь?'))
+
+    @abc.abstractmethod
+    def run(self):
+        """Placeholder for implementing logic for particular command, each command must implement this method.
+
+        On this stage we already have parsed and validated parameters.
+        """
+        pass
 
     """ Utility functions """
 
@@ -233,88 +245,8 @@ class TelegramCommand(metaclass=abc.ABCMeta):
         return day.isocalendar()[1] % 2 + 1
 
 
-class HelpCommand(TelegramCommand):
-    command = '/help'
-
-    def run(self):
-        self.reply(HELP_TEXT)
-
-
-class TimeCommand(TelegramCommand):
-    command = '/time'
-
-    def run(self):
-        self.reply(TIME)
-
-
-class WeekCommand(TelegramCommand):
-    command = '/week'
-
-    def run(self):
-        self.reply(_('Сейчас *{}* учебная неделя').format(self.current_educational_week()))
-
-
-class ChangeLanguageCommand(TelegramCommand):
-    command = '/changelang'
-
-    def run(self):
-        self.chat.language = 'uk' if self.chat.language == 'ru' else 'ru'
-        self.chat.save()
-        activate(self.chat.language)
-        self.reply(_("Язык бота был изменён"))
-
-
-class SetgroupCommand(TelegramCommand):
-    command = '/setgroup'
-    validation_schema = {
-        'required': ['groups']
-    }
-
-    def set_default_values(self):
-        pass
-
-    def run(self):
-        self.chat.category = 'group'
-        self.chat.resource_id = self.arguments['groups']
-        self.chat.save()
-        self.reply(_("Я запомнил твою группу!"))
-
-
-class SetteacherCommand(TelegramCommand):
-    command = '/setteacher'
-    validation_schema = {
-        'required': ['teachers']
-    }
-
-    def set_default_values(self):
-        pass
-
-    def run(self):
-        self.chat.category = 'teacher'
-        self.chat.resource_id = self.arguments['teachers']
-        self.chat.save()
-        self.reply(_("Я запомнил твою группу!"))
-
-
-class TimetableTelegramCommand(TelegramCommand):
-    def _format_lesson(self, lesson: dict):
-        """Format API lesson response to readable form"""
-        lesson_type = " (`{}`)".format(LESSON_TYPES[lesson['type']]) if lesson['type'] in LESSON_TYPES else ""
-
-        rooms_list = ", ".join(lesson['rooms_full_names']) if lesson['rooms'] else _("расположение неизвестно")
-
-        formatted_lesson = "*{}*: {}{} - {}".format(lesson['number'],
-                                                    lesson['discipline_name'],
-                                                    lesson_type,
-                                                    rooms_list)
-
-        # If "T" parameter has been passed, add teachers names to response.
-        if self.arguments.get('print_teacher'):
-            if lesson['teachers']:
-                formatted_lesson += "\n  — {}".format("\n  — ".join(lesson['teachers_short_names']))
-            else:
-                formatted_lesson += "\n  — {}".format(_('не известно'))
-        return formatted_lesson
+class TimetableTelegramCommand(TelegramCommand, metaclass=abc.ABCMeta):
+    validate_not_allowed_arguments = True
 
     def run(self):
         query_parameters = self.arguments.copy()
@@ -322,37 +254,44 @@ class TimetableTelegramCommand(TelegramCommand):
         timetable = KPIHubAPIClient.get_timetable(query_parameters)
 
         # Transform timetable dictionary to readable form
-        result = defaultdict(lambda: defaultdict(list))
+        self.timetable = defaultdict(lambda: defaultdict(list))
         for lesson in timetable:
-            result[lesson['week']][lesson['day']].append(self._format_lesson(lesson))
+            self.timetable[lesson['week']][lesson['day']].append(self._format_lesson(lesson))
 
-        if not result:
+        if not self.timetable:
             self.reply(_('Не могу найти пары. А они точно есть?'))
             return
 
+        self.process_timetable()
+
+    def process_timetable(self):
         # Send formatted messages
-        for week_number, week_timetable in result.items():
+        for week_number, week_timetable in self.timetable.items():
             for day, lessons_list in week_timetable.items():
                 header = "*{}* ({} {}):\n".format(WEEK_DAYS[day], week_number, _("неделя"))
                 self.reply(header + '\n'.join(sorted(lessons_list)))
 
+    """ Utility functions """
 
-class TodayCommand(TimetableTelegramCommand):
-    command = '/today'
+    def _format_lesson(self, lesson: dict):
+        """Format lesson object from API to readable form"""
+        lesson_type = " (`{}`)".format(LESSON_TYPES[lesson['type']]) if lesson['type'] in LESSON_TYPES else ""
 
-    def set_default_values(self):
-        super().set_default_values()
-        self.arguments['week'] = self.current_educational_week()
-        self.arguments['day'] = date.today().weekday() + 1
+        rooms_string = ", ".join(lesson['rooms_full_names']) if lesson['rooms'] else _("расположение неизвестно")
 
+        formatted_lesson = "*{}*: {}{} - {}".format(lesson['number'],
+                                                    lesson['discipline_name'],
+                                                    lesson_type,
+                                                    rooms_string)
 
-class NowCommand(TimetableTelegramCommand):
-    command = '/now'
+        # If "T" parameter has been passed, add teachers names to response.
+        if self.arguments.get('print_teacher'):
+            teachers_string = "\n  — ".join(lesson['teachers_short_names']) if lesson['teachers'] else _('не известно')
+            formatted_lesson += "\n  — {}".format(teachers_string)
+        return formatted_lesson
 
-    def set_default_values(self):
-        super().set_default_values()
-        self.arguments['week'] = self.current_educational_week()
-        self.arguments['day'] = date.today().weekday() + 1
+    @staticmethod
+    def current_lesson_number():
         # TODO: Refactor
         now = datetime.now()
         pairs = [
@@ -367,24 +306,4 @@ class NowCommand(TimetableTelegramCommand):
         ]
         for i in range(len(pairs) - 1):
             if now > pairs[i] and now < pairs[i + 1]:
-                self.arguments['number'] = i
-                break
-
-
-class TeacherCommand(TimetableTelegramCommand):
-    command = '/teacher'
-    validation_schema = {
-        'required': ['teachers'],
-        'optional': ['week', 'day', 'number']
-    }
-
-    def set_default_values(self):
-        pass
-
-
-class TTCommand(TimetableTelegramCommand):
-    command = '/tt'
-    validation_schema = {
-        'required': [('groups', 'teachers')],
-        'optional': ['print_teacher', 'week', 'day', 'number']
-    }
+                return i

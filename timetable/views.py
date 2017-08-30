@@ -51,8 +51,11 @@ class CommandDispatcherView(View):
             '/teacher': commands.TeacherCommand,
             '/time': commands.TimeCommand,
             '/today': commands.TodayCommand,
+            '/tomorrow': commands.TomorrowCommand,
             '/tt': commands.TTCommand,
             '/week': commands.WeekCommand,
+            '/where': commands.WhereCommand,
+            '/who': commands.WhoCommand
         }
 
         command_objects[command](param_tokens, self.chat).run()
