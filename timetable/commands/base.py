@@ -257,12 +257,7 @@ class TimetableTelegramCommand(TelegramCommand, metaclass=abc.ABCMeta):
     def run(self):
         query_parameters = self.arguments.copy()
         query_parameters['limit'] = 100
-        timetable = KPIHubAPIClient.get_timetable(query_parameters)
-
-        # Transform timetable dictionary to readable form
-        self.timetable = defaultdict(lambda: defaultdict(list))
-        for lesson in timetable:
-            self.timetable[lesson['week']][lesson['day']].append(self._format_lesson(lesson))
+        self.timetable = KPIHubAPIClient.get_timetable(query_parameters)
 
         if not self.timetable:
             self.reply(_('Не могу найти пары. А они точно есть?'))
@@ -271,6 +266,11 @@ class TimetableTelegramCommand(TelegramCommand, metaclass=abc.ABCMeta):
         self.process_timetable()
 
     def process_timetable(self):
+        # Transform timetable dictionary to readable form
+        self.timetable = defaultdict(lambda: defaultdict(list))
+        for lesson in self.timetable:
+            self.timetable[lesson['week']][lesson['day']].append(self._format_lesson(lesson))
+
         # Send formatted messages
         for week_number, week_timetable in self.timetable.items():
             for day, lessons_list in week_timetable.items():
