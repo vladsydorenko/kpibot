@@ -12,6 +12,23 @@ from timetable.models import Chat
 
 bot = settings.BOT
 
+command_objects = {
+    #'/changelang': commands.ChangeLanguageCommand,
+    '/help': commands.HelpCommand,
+    '/now': commands.NowCommand,
+    '/setgroup': commands.SetgroupCommand,
+    '/setteacher': commands.SetteacherCommand,
+    '/start': commands.HelpCommand,
+    '/teacher': commands.TeacherCommand,
+    '/time': commands.TimeCommand,
+    '/today': commands.TodayCommand,
+    '/tomorrow': commands.TomorrowCommand,
+    '/tt': commands.TTCommand,
+    '/week': commands.WeekCommand,
+    '/where': commands.WhereCommand,
+    '/who': commands.WhoCommand
+}
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class CommandDispatcherView(View):
@@ -36,28 +53,11 @@ class CommandDispatcherView(View):
 
         # Check if we can process such command
         command = message.split()[0].split('@')[0]
-        if command not in constants.ALLOWED_COMMANDS:
+        if command not in command_objects.keys():
             return HttpResponse()
 
         # If command doesn't need timetable
         param_tokens = message.split()[1:]
-        command_objects = {
-            '/changelang': commands.ChangeLanguageCommand,
-            '/help': commands.HelpCommand,
-            '/now': commands.NowCommand,
-            '/setgroup': commands.SetgroupCommand,
-            '/setteacher': commands.SetteacherCommand,
-            '/start': commands.HelpCommand,
-            '/teacher': commands.TeacherCommand,
-            '/time': commands.TimeCommand,
-            '/today': commands.TodayCommand,
-            '/tomorrow': commands.TomorrowCommand,
-            '/tt': commands.TTCommand,
-            '/week': commands.WeekCommand,
-            '/where': commands.WhereCommand,
-            '/who': commands.WhoCommand
-        }
-
         command_objects[command](param_tokens, self.chat).run()
 
         return HttpResponse()

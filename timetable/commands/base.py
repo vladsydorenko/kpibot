@@ -257,25 +257,26 @@ class TimetableTelegramCommand(TelegramCommand, metaclass=abc.ABCMeta):
     def run(self):
         query_parameters = self.arguments.copy()
         query_parameters['limit'] = 100
-        self.timetable = KPIHubAPIClient.get_timetable(query_parameters)
+        raw_timetable = KPIHubAPIClient.get_timetable(query_parameters)
 
-        if not self.timetable:
+        if not raw_timetable:
             self.reply(_('Не могу найти пары. А они точно есть?'))
             return
+
+        # Transform timetable to more convenient representation week -> day -> list of lesson objects
+        self.timetable = defaultdict(lambda: defaultdict(list))
+        for lesson in raw_timetable:
+            lesson['formatted'] = self._format_lesson(lesson)
+            self.timetable[lesson['week']][lesson['day']].append(lesson)
 
         self.process_timetable()
 
     def process_timetable(self):
-        # Transform timetable dictionary to readable form
-        self.timetable = defaultdict(lambda: defaultdict(list))
-        for lesson in self.timetable:
-            self.timetable[lesson['week']][lesson['day']].append(self._format_lesson(lesson))
-
         # Send formatted messages
         for week_number, week_timetable in self.timetable.items():
             for day, lessons_list in week_timetable.items():
                 header = "*{}* ({} {}):\n".format(WEEK_DAYS[day], week_number, _("неделя"))
-                self.reply(header + '\n'.join(sorted(lessons_list)))
+                self.reply(header + '\n'.join(sorted([lesson['formatted'] for lesson in lessons_list])))
 
     """ Utility functions """
 

@@ -39,21 +39,3 @@ EXCEPTION_MESSAGE = """
 Из-за кривых рук моего разработчика случилась нередвиденная ошибка, но он уже об этом знает и скоро всё исправит.
 Если ты хочешь пнуть его лично, то пиши @vladsydorenko
 """.replace('\n', ' ')
-
-ALLOWED_COMMANDS = [
-    "/changelang",
-    "/help",
-    #"/next",
-    "/now",
-    "/setgroup",
-    "/setteacher",
-    "/start",
-    "/teacher",
-    "/time",
-    "/today",
-    "/tomorrow",
-    "/tt",
-    "/week",
-    "/where"
-    "/who",
-]
