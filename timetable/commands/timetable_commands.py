@@ -29,11 +29,11 @@ class TomorrowCommand(TimetableTelegramCommand):
     def set_default_values(self):
         super().set_default_values()
         self.arguments['week'] = self.current_educational_week()
-        self.arguments['day'] = date.today().weekday() + 1
+        self.arguments['day'] = date.today().weekday() + 2
 
         # If call this command on Sunday - get timetable for Monday of next week
-        if self.arguments['day'] == 7:
-            self.arguments['day'] = 2 - self.arguments['day']
+        if self.arguments['day'] == 8:
+            self.arguments['week'] = 2 - self.arguments['week']
             self.arguments['day'] = 1
 
 

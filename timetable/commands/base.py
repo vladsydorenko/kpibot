@@ -200,6 +200,12 @@ class TelegramCommand(metaclass=abc.ABCMeta):
         # Check if all other arguments are not restricted
         if self.validate_not_allowed_arguments:
             allowed_arguments = self.validation_schema.get('required', []) + self.validation_schema.get('optional', [])
+            # Flatten allowed arguments (because single item might be tuple)
+            for item in allowed_arguments:
+                if isinstance(item, tuple):
+                    allowed_arguments += list(item)
+                    allowed_arguments.remove(item)
+
             if set(self.arguments.keys()) - set(allowed_arguments):
                 raise ValidationError(_('Слушай, ну вот зачем ты мне лишние параметры для команды передаёшь?'))
 
