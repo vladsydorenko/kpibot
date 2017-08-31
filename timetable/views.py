@@ -6,14 +6,13 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from timetable import constants
 from timetable import commands
 from timetable.models import Chat
 
 bot = settings.BOT
 
 command_objects = {
-    #'/changelang': commands.ChangeLanguageCommand,
+    # '/changelang': commands.ChangeLanguageCommand,
     '/help': commands.HelpCommand,
     '/now': commands.NowCommand,
     '/setgroup': commands.SetgroupCommand,

@@ -3,6 +3,7 @@ import json
 from django.conf import settings
 from django.http import HttpResponse
 from django.utils.translation import activate
+import telegram
 
 from timetable.exceptions import ParsingError, ValidationError, StopExecution
 from timetable.constants import EXCEPTION_MESSAGE
@@ -47,13 +48,18 @@ class ErrorHandlingMiddleware:
         data = json.loads(request.body.decode('utf-8'))
         chat_id = data['message']['chat']['id']
 
-        if exception.__class__ in (ParsingError, ValidationError):
-            bot.send_message(chat_id=chat_id, text=str(exception))
-        elif exception.__class__ != StopExecution:
-            bot.send_message(chat_id=chat_id, text=EXCEPTION_MESSAGE)
+        try:
+            if exception.__class__ in (ParsingError, ValidationError):
+                bot.send_message(chat_id=chat_id, text=str(exception))
+            elif exception.__class__ != StopExecution:
+                bot.send_message(chat_id=chat_id, text=EXCEPTION_MESSAGE)
 
-            # Send traceback to developer
-            import traceback
-            bot.send_message(chat_id=settings.LOG_CHAT_ID, text=traceback.format_exc())
-            bot.send_message(chat_id=settings.LOG_CHAT_ID, text="```\n{}\n```".format(json.dumps(data, indent=4)))
+                # Send traceback to developer
+                import traceback
+                bot.send_message(chat_id=settings.LOG_CHAT_ID, text=traceback.format_exc())
+                bot.send_message(chat_id=settings.LOG_CHAT_ID, text="{}".format(json.dumps(data, indent=4)))
+        # User might block bot, so we can't send him message about exception, we need to just ignore it.
+        except telegram.Unauthorized:
+            pass
+
         return HttpResponse()

@@ -182,8 +182,9 @@ class TelegramCommand(metaclass=abc.ABCMeta):
                 custom_keyboard = [[
                     '{} {} {}'.format(self.command, teacher_object['name'], ' '.join(self.unparsed_arguments))]
                     for teacher_object in results
+                    if teacher_object['name'].lower().startswith(self.arguments['teachers_name'])
                 ]
-                self.reply(_('Тут есть несколько подходящих групп, выбери свою'), custom_keyboard)
+                self.reply(_('Тут есть несколько подходящих преподавателей:'), custom_keyboard)
                 raise StopExecution
             else:
                 self.arguments['teachers'] = results[0]['id']
