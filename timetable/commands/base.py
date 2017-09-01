@@ -249,7 +249,7 @@ class TelegramCommand(metaclass=abc.ABCMeta):
         """
         if not day:
             day = date.today()
-        return day.isocalendar()[1] % 2 + 1
+        return 2 - day.isocalendar()[1] % 2
 
 
 class TimetableTelegramCommand(TelegramCommand, metaclass=abc.ABCMeta):

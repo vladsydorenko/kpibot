@@ -64,7 +64,7 @@ class WhoCommand(TimetableTelegramCommand):
         self.arguments['number'] = self.current_lesson_number()
 
     def process_timetable(self):
-        lesson = self.timetable[str(self.arguments['week'])][str(self.arguments['day'])][str(self.arguments['number'])]
+        lesson = self.timetable[self.arguments['week']][self.arguments['day']][0]
 
         if not lesson['teachers']:
             self.reply(_('В расписании не написано что это за преподаватель, так что для тебя он *Извините Пожалуйста*'))
@@ -89,7 +89,7 @@ class WhereCommand(TimetableTelegramCommand):
         self.arguments['number'] = self.current_lesson_number()
 
     def process_timetable(self):
-        lesson = self.timetable[str(self.arguments['week'])][str(self.arguments['day'])][str(self.arguments['number'])]
+        lesson = self.timetable[self.arguments['week']][self.arguments['day']][0]
 
         if not lesson['rooms']:
             self.reply(_('В расписании нет аудитории для текущей пары.'))
