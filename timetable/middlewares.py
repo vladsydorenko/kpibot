@@ -20,7 +20,8 @@ class LocaleMiddleware:
     def __call__(self, request):
         try:
             data = json.loads(request.body.decode('utf-8'))
-            chat_id = data['message']['chat']['id']
+            # Edited messages has different key in request payload, so we need to handle it
+            chat_id = data['message']['chat']['id'] if 'message' in data else data['edited_message']['chat']['id']
             try:
                 chat = Chat.objects.get(pk=chat_id)
             except Chat.DoesNotExist:
@@ -46,7 +47,8 @@ class ErrorHandlingMiddleware:
 
     def process_exception(self, request, exception):
         data = json.loads(request.body.decode('utf-8'))
-        chat_id = data['message']['chat']['id']
+        # Edited messages has different key in request payload, so we need to handle it
+        chat_id = data['message']['chat']['id'] if 'message' in data else data['edited_message']['chat']['id']
 
         try:
             if exception.__class__ in (ParsingError, ValidationError):
@@ -59,7 +61,7 @@ class ErrorHandlingMiddleware:
                 bot.send_message(chat_id=settings.LOG_CHAT_ID, text=traceback.format_exc())
                 bot.send_message(chat_id=settings.LOG_CHAT_ID, text="{}".format(json.dumps(data, indent=4)))
         # User might block bot, so we can't send him message about exception, we need to just ignore it.
-        except telegram.Unauthorized:
+        except telegram.error.Unauthorized:
             pass
 
         return HttpResponse()
