@@ -43,7 +43,7 @@ WEEK_DAYS_ABBREVIATIONS = {
 class TelegramCommand(metaclass=abc.ABCMeta):
     """Base class for all Telegram bot commands.
 
-    validation_schema variable describes which arguments are required and which are optional for particular command
+    `validation_schema` variable describes which arguments are required and which are optional for particular command
     It should be dict like:
         {
             'required': ['group'],
@@ -53,6 +53,8 @@ class TelegramCommand(metaclass=abc.ABCMeta):
         'required', which means that this parameter should always be in arguments.
         'optional', which means that it might be passed, but not always.
     All parameters that are not described in this dict will be processed as restricted for this command.
+    `validate_not_allowed_arguments` enables or disables validation of not allowed arguments, so validation for
+    required arguments are always performed, for not allowed - only when this flag is set to True.
     """
     validation_schema = {}
     validate_not_allowed_arguments = False
@@ -69,6 +71,14 @@ class TelegramCommand(metaclass=abc.ABCMeta):
     @property
     def command(self):
         """Every command class should describe what Telegram command it implements in `command` field"""
+        pass
+
+    @abc.abstractmethod
+    def run(self):
+        """Placeholder for implementing logic for particular command, each command must implement this method.
+
+        On this stage we already have parsed and validated parameters.
+        """
         pass
 
     def parse(self, arguments_list) -> dict:
@@ -210,14 +220,6 @@ class TelegramCommand(metaclass=abc.ABCMeta):
             if set(self.arguments.keys()) - set(allowed_arguments):
                 raise ValidationError(_('Слушай, ну вот зачем ты мне лишние параметры для команды передаёшь?'))
 
-    @abc.abstractmethod
-    def run(self):
-        """Placeholder for implementing logic for particular command, each command must implement this method.
-
-        On this stage we already have parsed and validated parameters.
-        """
-        pass
-
     """ Utility functions """
 
     def reply(self, message, custom_keyboard=None):
@@ -230,6 +232,7 @@ class TelegramCommand(metaclass=abc.ABCMeta):
 
     @staticmethod
     def transliterate(text: str) -> str:
+        """Transliterate all english symbols to Ukrainian."""
         tr_en_ua = str.maketrans("abcdefghijklmnopqrstuvwxyz",
                                  "абцдефгхіжклмнопкрстуввхуз")
         return text.translate(tr_en_ua)

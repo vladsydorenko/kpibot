@@ -42,7 +42,7 @@ class CommandDispatcherView(View):
             return HttpResponse()
 
         chat_id = message['chat']['id']
-        self.chat, _ = Chat.objects.get_or_create(id=chat_id)
+        chat, _ = Chat.objects.get_or_create(id=chat_id)
 
         try:
             # Check that user sent text, not image or anything else.
@@ -57,6 +57,6 @@ class CommandDispatcherView(View):
 
         # If command doesn't need timetable
         param_tokens = message.split()[1:]
-        command_objects[command](param_tokens, self.chat).run()
+        command_objects[command](param_tokens, chat).run()
 
         return HttpResponse()

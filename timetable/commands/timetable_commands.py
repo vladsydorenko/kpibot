@@ -33,7 +33,7 @@ class TomorrowCommand(TimetableTelegramCommand):
 
         # If call this command on Sunday - get timetable for Monday of next week
         if self.arguments['day'] == 8:
-            self.arguments['week'] = 2 - self.arguments['week']
+            self.arguments['week'] = 3 - self.arguments['week']
             self.arguments['day'] = 1
 
 
