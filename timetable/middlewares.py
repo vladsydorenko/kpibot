@@ -29,7 +29,7 @@ class LocaleMiddleware:
             else:
                 activate(chat.language)
         except:
-            return HttpResponse()
+            pass
 
         response = self.get_response(request)
         return response
@@ -47,8 +47,12 @@ class ErrorHandlingMiddleware:
 
     def process_exception(self, request, exception):
         data = json.loads(request.body.decode('utf-8'))
-        # Edited messages has different key in request payload, so we need to handle it
-        chat_id = data['message']['chat']['id'] if 'message' in data else data['edited_message']['chat']['id']
+        try:
+            # Edited messages has different key in request payload, so we need to handle it
+            chat_id = data['message']['chat']['id'] if 'message' in data else data['edited_message']['chat']['id']
+        except:
+            # If exception happened not during Telegram command processing
+            pass
 
         try:
             if exception.__class__ in (ParsingError, ValidationError):

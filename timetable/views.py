@@ -55,8 +55,8 @@ class CommandDispatcherView(View):
         if command not in command_objects.keys():
             return HttpResponse()
 
-        # If command doesn't need timetable
-        param_tokens = message.split()[1:]
-        command_objects[command](param_tokens, chat).run()
+        # Tokenize passed command arguments for parsing and validation
+        arguments = message.split()[1:]
+        command_objects[command](arguments, chat).run()
 
         return HttpResponse()

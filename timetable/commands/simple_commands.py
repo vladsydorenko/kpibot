@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.utils.translation import activate
 from django.utils.translation import ugettext as _
 
@@ -66,3 +67,10 @@ class SetteacherCommand(TelegramCommand):
         self.chat.resource_id = self.arguments['teachers']
         self.chat.save()
         self.reply(_("Я запомнил твою группу!"))
+
+
+class MapCommand(TelegramCommand):
+    command = '/map'
+
+    def run(self):
+        settings.bot.send_picture(self.chat.id, settings.KPI_MAP_URL, caption=_('Прости, карты покрасивее нет'))

@@ -48,7 +48,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'timetable.middlewares.ErrorHandlingMiddleware',
-    'timetable.middlewares.LocaleMiddleware',
+    #  'timetable.middlewares.LocaleMiddleware',
 ]
 
 ROOT_URLCONF = 'kpibot.urls'
@@ -108,8 +108,10 @@ USE_TZ = True
 STATIC_ROOT = os.path.join(os.path.dirname(__file__), 'static/')
 STATIC_URL = '/static/'
 
-TIMETABLE_URL = "http://api.rozklad.hub.kpi.ua"
+TIMETABLE_URL = "https://api.rozklad.hub.kpi.ua"
+KPI_MAP_URL = "http://kpi.ua/images/map-campus.gif"
 
+# Look at settings_secure.template.py file to see list of required custom settings.
 from .settings_secure import *
 
 BOT = telegram.Bot(token=BOT_TOKEN)
