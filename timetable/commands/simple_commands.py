@@ -81,4 +81,4 @@ class FullMapCommand(TelegramCommand):
     command = '/fullmap'
 
     def run(self):
-        settings.BOT.send_document(self.chat.id, settings.KPI_MAP_URL, caption=_('Спасибо СРС за карту :)'))
+        settings.BOT.send_document(self.chat.id, settings.KPI_MAP_FILE_ID, caption=_('Спасибо СРС за карту :)'))
