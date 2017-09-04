@@ -73,4 +73,12 @@ class MapCommand(TelegramCommand):
     command = '/map'
 
     def run(self):
-        settings.bot.send_picture(self.chat.id, settings.KPI_MAP_URL, caption=_('Прости, карты покрасивее нет'))
+        settings.BOT.send_photo(self.chat.id, settings.KPI_MAP_URL, caption=_('10 шакалов из 10. '
+                                'Если хочешь карту в нормальном разрешении, можешь использовать команду /fullmap'))
+
+
+class FullMapCommand(TelegramCommand):
+    command = '/fullmap'
+
+    def run(self):
+        settings.BOT.send_document(self.chat.id, settings.KPI_MAP_URL, caption=_('Спасибо СРС за карту :)'))

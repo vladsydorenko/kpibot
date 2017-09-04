@@ -13,7 +13,9 @@ bot = settings.BOT
 
 command_objects = {
     # '/changelang': commands.ChangeLanguageCommand,
+    '/fullmap': commands.FullMapCommand,
     '/help': commands.HelpCommand,
+    '/map': commands.MapCommand,
     '/now': commands.NowCommand,
     '/setgroup': commands.SetgroupCommand,
     '/setteacher': commands.SetteacherCommand,

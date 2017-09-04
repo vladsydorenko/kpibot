@@ -108,8 +108,8 @@ USE_TZ = True
 STATIC_ROOT = os.path.join(os.path.dirname(__file__), 'static/')
 STATIC_URL = '/static/'
 
-TIMETABLE_URL = "https://api.rozklad.hub.kpi.ua"
-KPI_MAP_URL = "http://kpi.ua/images/map-campus.gif"
+TIMETABLE_URL = "http://api.rozklad.hub.kpi.ua"
+KPI_MAP_URL = "http://srs.kpi.ua/wp-content/uploads/2016/03/kpi_map_full.png"
 
 # Look at settings_secure.template.py file to see list of required custom settings.
 from .settings_secure import *
