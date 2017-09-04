@@ -35,6 +35,8 @@ command_objects = {
 class CommandDispatcherView(View):
     def post(self, request):
         data = json.loads(request.body.decode('utf-8'))
+        # Very simple loggin. TODO: implement normal logging
+        print(data)
         try:
             # Edited messages has different key in request payload, so we need to handle it
             message = data['message'] if 'message' in data else data['edited_message']
